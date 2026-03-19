@@ -43,13 +43,15 @@ export interface ApiStatusResponse {
   }
 }
 
-// ── Stock ─────────────────────────────────────────────────────────────────────
+// ── Stock (obter) ─────────────────────────────────────────────────────────────
 
-export interface ApiSaldoEntry {
-  saldo: {
-    id_deposito: string
-    nome_deposito: string
+export interface ApiStockDeposit {
+  deposito: {
+    nome: string
+    /** 'S' = ignore, 'N' = use */
+    desconsiderar: string
     saldo: number
+    empresa?: string
   }
 }
 
@@ -58,34 +60,86 @@ export interface ApiGetStockResponse {
     status: string
     produto: {
       id: number | string
-      saldo: ApiSaldoEntry[]
+      nome: string
+      codigo?: string
+      unidade?: string
+      /** Total stock balance */
+      saldo: number
+      /** Reserved stock balance */
+      saldoReservado: number
+      depositos: ApiStockDeposit[]
     }
   }
 }
 
-// ── Structure ─────────────────────────────────────────────────────────────────
+// ── Stock (update) ────────────────────────────────────────────────────────────
 
-export interface ApiGetStructureResponse {
+export interface ApiUpdateStockResponse {
   retorno: {
     status: string
-    produto: {
-      estrutura: unknown
-    }
+    registros?: Array<{
+      registro: {
+        sequencia: string
+        status: string
+        id: number
+        saldoEstoque: number
+        saldoReservado: number
+        registroCriado: boolean
+      }
+    }>
   }
 }
 
-// ── Stock updates ─────────────────────────────────────────────────────────────
+// ── Stock updates (atualizacoes) ──────────────────────────────────────────────
 
-export interface ApiStockUpdateEntry {
-  atualizacao: {
+export interface ApiStockUpdateDeposit {
+  deposito: {
+    nome: string
+    desconsiderar: string
+    saldo: number
+  }
+}
+
+export interface ApiStockUpdateProduct {
+  produto: {
     id: number | string
-    quantidade: number
+    nome: string
+    codigo?: string
+    unidade?: string
+    /** N = normal, P = parent, V = variation */
+    tipo_variacao?: string
+    localizacao?: string
+    data_alteracao: string
+    saldo: number
+    saldoReservado: number
+    depositos?: ApiStockUpdateDeposit[]
   }
 }
 
 export interface ApiGetStockUpdatesResponse {
   retorno: {
     status: string
-    atualizacoes?: ApiStockUpdateEntry[]
+    produtos?: ApiStockUpdateProduct[]
+  }
+}
+
+// ── Structure ─────────────────────────────────────────────────────────────────
+
+export interface ApiStructureComponent {
+  id_componente: number | string
+  codigo?: string
+  nome: string
+  quantidade: number | string
+}
+
+export interface ApiGetStructureResponse {
+  retorno: {
+    status: string
+    produto: {
+      id: number | string
+      nome: string
+      codigo?: string
+      estrutura: ApiStructureComponent[]
+    }
   }
 }

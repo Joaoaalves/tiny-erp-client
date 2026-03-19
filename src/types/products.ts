@@ -139,6 +139,88 @@ export interface Product {
   mappings?: ProductMapping[]
 }
 
+// ── Stock types ───────────────────────────────────────────────────────────────
+
+export interface ProductStockDeposit {
+  name: string
+  /** Whether this deposit's balance should be ignored */
+  ignore: boolean
+  quantity: number
+  company?: string
+}
+
+export interface ProductStock {
+  productId: string
+  name: string
+  sku?: string
+  unit?: string
+  quantity: number
+  reservedQuantity: number
+  deposits: ProductStockDeposit[]
+}
+
+/** E = entry, S = exit, B = balance (default) */
+export type StockMovementType = 'entry' | 'exit' | 'balance'
+
+export interface UpdateStockInput {
+  productId: string
+  quantity: number
+  movementType?: StockMovementType
+  /** ISO datetime YYYY-MM-DD HH:mm:ss or YYYY-MM-DD */
+  date?: string
+  unitPrice?: number
+  notes?: string
+  warehouse?: string
+}
+
+export interface UpdateStockResult {
+  sequenceId: string
+  status: string
+  movementId: number
+  balanceAfter: number
+  reservedBalance: number
+  isNewRecord: boolean
+}
+
+/** N = normal, P = parent, V = variation */
+export type StockVariationType = 'normal' | 'parent' | 'variation'
+
+export interface StockUpdateDeposit {
+  name: string
+  ignore: boolean
+  quantity: number
+}
+
+export interface StockUpdate {
+  productId: string
+  name: string
+  sku?: string
+  unit?: string
+  variationType?: StockVariationType
+  location?: string
+  /** Raw datetime string from Tiny API */
+  updatedAt: string
+  quantity: number
+  reservedQuantity: number
+  deposits: StockUpdateDeposit[]
+}
+
+// ── Structure types ───────────────────────────────────────────────────────────
+
+export interface ProductStructureComponent {
+  componentId: string
+  sku?: string
+  name: string
+  quantity: number
+}
+
+export interface ProductStructure {
+  productId: string
+  name: string
+  sku?: string
+  components: ProductStructureComponent[]
+}
+
 // ── Endpoint I/O ─────────────────────────────────────────────────────────────
 
 export interface SearchProductsInput {
