@@ -28,8 +28,17 @@ export type {
 // Orders
 export type {
   Order,
-  OrderItem,
   OrderStatus,
+  PersonType,
+  FreightResponsibility,
+  OrderCustomer,
+  OrderDeliveryAddress,
+  OrderItem,
+  OrderInstallment,
+  OrderMarker,
+  OrderEcommerce,
+  OrderIntermediary,
+  OrderIntegratedPayment,
   SearchOrdersInput,
   SearchOrdersOutput,
 } from './types/orders'
