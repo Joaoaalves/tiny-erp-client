@@ -16,3 +16,5 @@ export interface ProductsModule {
   updateStock(id: string, quantity: number): Promise<void>
   updatePrices(id: string, price: number): Promise<void>
 }
+
+export { ProductsEndpoint } from './ProductsEndpoint'
