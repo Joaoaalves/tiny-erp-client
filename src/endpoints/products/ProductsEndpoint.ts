@@ -27,6 +27,11 @@ import type {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+/** Tiny returns registros as { registro } when there is one record, or [{ registro }] for many. */
+function firstRegistro<T>(registros: Array<{ registro: T }> | { registro: T }): T {
+  return Array.isArray(registros) ? registros[0].registro : registros.registro
+}
+
 function assertOk(status: string, operation: string): void {
   if (status !== 'OK') {
     throw new TinyApiError(`Tiny API error [${operation}]: ${status}`, 'TINY_STATUS_ERROR')
@@ -184,7 +189,7 @@ export class ProductsEndpoint implements ProductsModule {
 
     assertOk(raw.retorno.status, 'createProduct')
 
-    const id = String(raw.retorno.registros![0].registro.id)
+    const id = String(firstRegistro(raw.retorno.registros!).id)
     return this.getProduct(id)
   }
 
@@ -331,14 +336,14 @@ export class ProductsEndpoint implements ProductsModule {
 
     assertOk(raw.retorno.status, 'updateStock')
 
-    const registro = raw.retorno.registros![0].registro
+    const registro = firstRegistro(raw.retorno.registros!)
 
     return {
       sequenceId: registro.sequencia,
       status: registro.status,
       movementId: registro.id,
       balanceAfter: registro.saldoEstoque,
-      reservedBalance: registro.saldoReservado,
+      reservedBalance: registro.saldoReservado ?? 0,
       isNewRecord: registro.registroCriado,
     }
   }

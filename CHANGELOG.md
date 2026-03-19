@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.4] - 2026-03-19
+
+### Fixed
+- `registros` response field: Tiny returns `{ "registro": {...} }` (plain object) instead of `[{ "registro": {...} }]` (array) when there is a single record — all three create/update endpoints (`createProduct`, `updateStock`, `createOrder`) now handle both shapes via `firstRegistro()` helper
+- `saldoReservado: null` in `updateStock` response no longer throws — coerced to `0`
+
+---
+
 ## [0.2.3] - 2026-03-19
 
 ### Fixed
@@ -161,6 +169,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[0.2.4]: https://github.com/your-org/tiny-erp-client/releases/tag/v0.2.4
 [0.2.3]: https://github.com/your-org/tiny-erp-client/releases/tag/v0.2.3
 [0.2.2]: https://github.com/your-org/tiny-erp-client/releases/tag/v0.2.2
 [0.2.1]: https://github.com/your-org/tiny-erp-client/releases/tag/v0.2.1

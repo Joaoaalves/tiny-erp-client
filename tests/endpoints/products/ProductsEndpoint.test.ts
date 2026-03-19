@@ -754,7 +754,7 @@ describe('ProductsEndpoint', () => {
       expect(qb.estoque.estoque.deposito).toBe('Depósito Principal')
     })
 
-    it('returns mapped UpdateStockResult', async () => {
+    it('returns mapped UpdateStockResult (registros as array)', async () => {
       const result = await new ProductsEndpoint(
         makeExecutor(updateStockResponse()),
       ).updateStock({ productId: '1', quantity: 25 })
@@ -764,6 +764,35 @@ describe('ProductsEndpoint', () => {
         movementId: 999,
         balanceAfter: 25,
         reservedBalance: 3,
+        isNewRecord: true,
+      })
+    })
+
+    it('returns mapped UpdateStockResult when registros is a plain object (single record)', async () => {
+      const singleObjectResponse = {
+        retorno: {
+          status: 'OK',
+          registros: {
+            registro: {
+              sequencia: '1',
+              status: 'OK',
+              id: 971400592,
+              saldoEstoque: 20,
+              saldoReservado: null,
+              registroCriado: true,
+            },
+          },
+        },
+      }
+      const result = await new ProductsEndpoint(
+        makeExecutor(singleObjectResponse),
+      ).updateStock({ productId: '971400284', quantity: 20 })
+      expect(result).toMatchObject({
+        sequenceId: '1',
+        status: 'OK',
+        movementId: 971400592,
+        balanceAfter: 20,
+        reservedBalance: 0,
         isNewRecord: true,
       })
     })

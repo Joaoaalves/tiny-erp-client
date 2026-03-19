@@ -22,15 +22,15 @@ export interface ApiGetProductResponse {
 
 // ── Create ────────────────────────────────────────────────────────────────────
 
+type ApiRegistros<T> = Array<{ registro: T }> | { registro: T }
+
 export interface ApiCreateProductResponse {
   retorno: {
     status: string
-    registros?: Array<{
-      registro: {
-        id: number
-        sequencia: number
-        status: string
-      }
+    registros?: ApiRegistros<{
+      id: number
+      sequencia: number
+      status: string
     }>
   }
 }
@@ -77,15 +77,13 @@ export interface ApiGetStockResponse {
 export interface ApiUpdateStockResponse {
   retorno: {
     status: string
-    registros?: Array<{
-      registro: {
-        sequencia: string
-        status: string
-        id: number
-        saldoEstoque: number
-        saldoReservado: number
-        registroCriado: boolean
-      }
+    registros?: ApiRegistros<{
+      sequencia: string
+      status: string
+      id: number
+      saldoEstoque: number
+      saldoReservado: number | null
+      registroCriado: boolean
     }>
   }
 }

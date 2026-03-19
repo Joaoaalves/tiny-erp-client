@@ -22,16 +22,16 @@ export interface ApiGetOrderResponse {
 
 // ── Create ────────────────────────────────────────────────────────────────────
 
+type ApiRegistros<T> = Array<{ registro: T }> | { registro: T }
+
 export interface ApiCreateOrderResponse {
   retorno: {
     status: string
-    registros?: Array<{
-      registro: {
-        id: number
-        sequencia: number
-        numero: string
-        status: string
-      }
+    registros?: ApiRegistros<{
+      id: number
+      sequencia: number
+      numero: string
+      status: string
     }>
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "tiny-erp-client",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "High-performance, fully typed TypeScript client for the Tiny ERP API",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
