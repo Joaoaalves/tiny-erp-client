@@ -20,6 +20,7 @@ export default defineConfig({
         'src/client/index.ts',
         'src/core/index.ts',
         'src/rate-limit/index.ts',
+        'src/mappers/index.ts',
         // endpoint index barrels — implementations deferred to feature/products and feature/orders
         'src/endpoints/products/index.ts',
         'src/endpoints/orders/index.ts',
