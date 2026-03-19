@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { OrdersEndpoint } from '../../../src/endpoints/orders/OrdersEndpoint'
 import type { RequestExecutor } from '../../../src/client/RequestExecutor'
 import { TinyApiError } from '../../../src/errors'
@@ -21,14 +21,14 @@ const OK_ORDER = {
   numero: '000123',
   situacao: 'Em aberto',
   data_pedido: '15/03/2024',
-  nome: 'João Silva',
-  id_contato: 'C001',
+  cliente: { nome: 'João Silva', codigo: 'C001' },
   valor: '119.80',
   itens: [
     {
       item: {
-        id: 10,
+        id_produto: 10,
         descricao: 'Camiseta Polo',
+        unidade: 'UN',
         quantidade: '2.00',
         valor_unitario: '59.90',
         valor: '119.80',
@@ -181,7 +181,7 @@ describe('OrdersEndpoint', () => {
       expect(order.id).toBe('1')
       expect(order.number).toBe('000123')
       expect(order.status).toBe('open')
-      expect(order.customerName).toBe('João Silva')
+      expect(order.customer.name).toBe('João Silva')
       expect(order.items).toHaveLength(1)
     })
 
@@ -202,10 +202,9 @@ describe('OrdersEndpoint', () => {
 
       await new OrdersEndpoint(executor).createOrder({
         status: 'open',
+        customer: { name: 'João' },
         items: SAMPLE_ITEMS,
         total: 119.8,
-        customerName: 'João',
-        customerId: 'C001',
       })
 
       expect(executor.execute).toHaveBeenCalledWith(
@@ -219,7 +218,12 @@ describe('OrdersEndpoint', () => {
         .mockResolvedValueOnce(createResponse())
         .mockResolvedValueOnce(getOrderResponse())
 
-      await new OrdersEndpoint(executor).createOrder({ status: 'approved', items: [], total: 0 })
+      await new OrdersEndpoint(executor).createOrder({
+        status: 'approved',
+        customer: { name: 'João' },
+        items: [],
+        total: 0,
+      })
 
       const body = vi.mocked(executor.execute).mock.calls[0][0].body as { pedido: { situacao: string } }
       expect(body.pedido.situacao).toBe('Aprovado')
@@ -231,7 +235,12 @@ describe('OrdersEndpoint', () => {
         .mockResolvedValueOnce(createResponse())
         .mockResolvedValueOnce(getOrderResponse())
 
-      await new OrdersEndpoint(executor).createOrder({ status: 'open', items: SAMPLE_ITEMS, total: 119.8 })
+      await new OrdersEndpoint(executor).createOrder({
+        status: 'open',
+        customer: { name: 'João' },
+        items: SAMPLE_ITEMS,
+        total: 119.8,
+      })
 
       const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
         pedido: { itens: Array<{ item: { descricao: string; quantidade: string; valor_unitario: string } }> }
@@ -243,7 +252,7 @@ describe('OrdersEndpoint', () => {
       })
     })
 
-    it('sends customerName as nome and customerId as id_contato', async () => {
+    it('sends customer fields as nested cliente in body', async () => {
       const executor = makeExecutor(null)
       vi.mocked(executor.execute)
         .mockResolvedValueOnce(createResponse())
@@ -251,17 +260,56 @@ describe('OrdersEndpoint', () => {
 
       await new OrdersEndpoint(executor).createOrder({
         status: 'open',
+        customer: { name: 'Maria', code: 'C999', personType: 'individual', taxId: '123.456.789-00' },
         items: [],
         total: 0,
-        customerName: 'Maria',
-        customerId: 'C999',
       })
 
       const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
-        pedido: { nome: string; id_contato: string }
+        pedido: { cliente: { nome: string; codigo: string; tipo_pessoa: string; cpf_cnpj: string } }
       }
-      expect(body.pedido.nome).toBe('Maria')
-      expect(body.pedido.id_contato).toBe('C999')
+      expect(body.pedido.cliente.nome).toBe('Maria')
+      expect(body.pedido.cliente.codigo).toBe('C999')
+      expect(body.pedido.cliente.tipo_pessoa).toBe('F')
+      expect(body.pedido.cliente.cpf_cnpj).toBe('123.456.789-00')
+    })
+
+    it('sends personType "company" as tipo_pessoa "J"', async () => {
+      const executor = makeExecutor(null)
+      vi.mocked(executor.execute)
+        .mockResolvedValueOnce(createResponse())
+        .mockResolvedValueOnce(getOrderResponse())
+
+      await new OrdersEndpoint(executor).createOrder({
+        status: 'open',
+        customer: { name: 'Empresa X', personType: 'company' },
+        items: [],
+        total: 0,
+      })
+
+      const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
+        pedido: { cliente: { tipo_pessoa: string } }
+      }
+      expect(body.pedido.cliente.tipo_pessoa).toBe('J')
+    })
+
+    it('sends personType "foreign" as tipo_pessoa "E"', async () => {
+      const executor = makeExecutor(null)
+      vi.mocked(executor.execute)
+        .mockResolvedValueOnce(createResponse())
+        .mockResolvedValueOnce(getOrderResponse())
+
+      await new OrdersEndpoint(executor).createOrder({
+        status: 'open',
+        customer: { name: 'Empresa Y', personType: 'foreign' },
+        items: [],
+        total: 0,
+      })
+
+      const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
+        pedido: { cliente: { tipo_pessoa: string } }
+      }
+      expect(body.pedido.cliente.tipo_pessoa).toBe('E')
     })
 
     it('fetches the created order by id after creation', async () => {
@@ -270,7 +318,12 @@ describe('OrdersEndpoint', () => {
         .mockResolvedValueOnce(createResponse(88))
         .mockResolvedValueOnce(getOrderResponse({ id: 88 }))
 
-      await new OrdersEndpoint(executor).createOrder({ status: 'open', items: [], total: 0 })
+      await new OrdersEndpoint(executor).createOrder({
+        status: 'open',
+        customer: { name: 'João' },
+        items: [],
+        total: 0,
+      })
 
       expect(executor.execute).toHaveBeenCalledTimes(2)
       const secondCall = vi.mocked(executor.execute).mock.calls[1]
@@ -283,14 +336,22 @@ describe('OrdersEndpoint', () => {
         .mockResolvedValueOnce(createResponse(1))
         .mockResolvedValueOnce(getOrderResponse())
 
-      const result = await new OrdersEndpoint(executor).createOrder({ status: 'open', items: [], total: 0 })
+      const result = await new OrdersEndpoint(executor).createOrder({
+        status: 'open',
+        customer: { name: 'João' },
+        items: [],
+        total: 0,
+      })
       expect(result.number).toBe('000123')
     })
 
     it('throws TinyApiError when create status is not OK', async () => {
       await expect(
         new OrdersEndpoint(makeExecutor(statusResponse('Erro'))).createOrder({
-          status: 'open', items: [], total: 0,
+          status: 'open',
+          customer: { name: 'João' },
+          items: [],
+          total: 0,
         }),
       ).rejects.toThrow(TinyApiError)
     })
@@ -360,7 +421,7 @@ describe('OrdersEndpoint', () => {
         .mockResolvedValueOnce(statusResponse())
         .mockResolvedValueOnce(getOrderResponse())
 
-      await new OrdersEndpoint(executor).updateOrder('7', { customerName: 'Ana' })
+      await new OrdersEndpoint(executor).updateOrder('7', { notes: 'Urgente' })
 
       const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
         pedido: Record<string, unknown>
@@ -368,42 +429,102 @@ describe('OrdersEndpoint', () => {
       expect(body.pedido['situacao']).toBeUndefined()
     })
 
+    it('maps freightResponsibility "sender" to frete_por_conta "C"', async () => {
+      const executor = makeExecutor(null)
+      vi.mocked(executor.execute)
+        .mockResolvedValueOnce(statusResponse())
+        .mockResolvedValueOnce(getOrderResponse())
+
+      await new OrdersEndpoint(executor).updateOrder('7', { freightResponsibility: 'sender' })
+
+      const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
+        pedido: Record<string, unknown>
+      }
+      expect(body.pedido['frete_por_conta']).toBe('C')
+    })
+
+    it('maps freightResponsibility "recipient" to frete_por_conta "D"', async () => {
+      const executor = makeExecutor(null)
+      vi.mocked(executor.execute)
+        .mockResolvedValueOnce(statusResponse())
+        .mockResolvedValueOnce(getOrderResponse())
+
+      await new OrdersEndpoint(executor).updateOrder('7', { freightResponsibility: 'recipient' })
+
+      const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
+        pedido: Record<string, unknown>
+      }
+      expect(body.pedido['frete_por_conta']).toBe('D')
+    })
+
+    it('maps freightResponsibility "third-party" to frete_por_conta "3"', async () => {
+      const executor = makeExecutor(null)
+      vi.mocked(executor.execute)
+        .mockResolvedValueOnce(statusResponse())
+        .mockResolvedValueOnce(getOrderResponse())
+
+      await new OrdersEndpoint(executor).updateOrder('7', { freightResponsibility: 'third-party' })
+
+      const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
+        pedido: Record<string, unknown>
+      }
+      expect(body.pedido['frete_por_conta']).toBe('3')
+    })
+
+    it('maps freightResponsibility "no-freight" to frete_por_conta "S"', async () => {
+      const executor = makeExecutor(null)
+      vi.mocked(executor.execute)
+        .mockResolvedValueOnce(statusResponse())
+        .mockResolvedValueOnce(getOrderResponse())
+
+      await new OrdersEndpoint(executor).updateOrder('7', { freightResponsibility: 'no-freight' })
+
+      const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
+        pedido: Record<string, unknown>
+      }
+      expect(body.pedido['frete_por_conta']).toBe('S')
+    })
+
+    it('sends tracking fields in body', async () => {
+      const executor = makeExecutor(null)
+      vi.mocked(executor.execute)
+        .mockResolvedValueOnce(statusResponse())
+        .mockResolvedValueOnce(getOrderResponse())
+
+      await new OrdersEndpoint(executor).updateOrder('7', {
+        trackingCode: 'BR123456789BR',
+        trackingUrl: 'https://track.example.com',
+      })
+
+      const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
+        pedido: Record<string, unknown>
+      }
+      expect(body.pedido['codigo_rastreamento']).toBe('BR123456789BR')
+      expect(body.pedido['url_rastreamento']).toBe('https://track.example.com')
+    })
+
+    it('sends notes and internalNotes in body', async () => {
+      const executor = makeExecutor(null)
+      vi.mocked(executor.execute)
+        .mockResolvedValueOnce(statusResponse())
+        .mockResolvedValueOnce(getOrderResponse())
+
+      await new OrdersEndpoint(executor).updateOrder('7', {
+        notes: 'Observação',
+        internalNotes: 'Interna',
+      })
+
+      const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
+        pedido: Record<string, unknown>
+      }
+      expect(body.pedido['obs']).toBe('Observação')
+      expect(body.pedido['obs_interna']).toBe('Interna')
+    })
+
     it('throws TinyApiError when update status is not OK', async () => {
       await expect(
         new OrdersEndpoint(makeExecutor(statusResponse('Erro'))).updateOrder('7', { status: 'open' }),
       ).rejects.toThrow(TinyApiError)
-    })
-  })
-
-  // ── toApiBody — customer field edge cases ────────────────────────────────────
-
-  describe('toApiBody — customer fields', () => {
-    it('sets nome=undefined when customerName is empty string', async () => {
-      const executor = makeExecutor(null)
-      vi.mocked(executor.execute)
-        .mockResolvedValueOnce(statusResponse())
-        .mockResolvedValueOnce(getOrderResponse())
-
-      await new OrdersEndpoint(executor).updateOrder('1', { customerName: '' })
-
-      const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
-        pedido: Record<string, unknown>
-      }
-      expect(body.pedido['nome']).toBeUndefined()
-    })
-
-    it('sets id_contato=undefined when customerId is empty string', async () => {
-      const executor = makeExecutor(null)
-      vi.mocked(executor.execute)
-        .mockResolvedValueOnce(statusResponse())
-        .mockResolvedValueOnce(getOrderResponse())
-
-      await new OrdersEndpoint(executor).updateOrder('1', { customerId: '' })
-
-      const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
-        pedido: Record<string, unknown>
-      }
-      expect(body.pedido['id_contato']).toBeUndefined()
     })
   })
 
