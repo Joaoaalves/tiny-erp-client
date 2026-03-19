@@ -10,4 +10,5 @@
 
 - **Advanced**
   - [Advanced Usage](advanced-usage.md)
+  - [AI Skill](ai-skill.md)
   - [Contributing](contributing.md)

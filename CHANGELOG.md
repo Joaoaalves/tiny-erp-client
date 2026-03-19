@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.0] - 2026-03-19
+
+### Added
+
+#### Order type enrichment
+- `OrderCustomer` — nested customer object replacing flat `customerName`/`customerId` fields; maps all address, contact, and tax fields from the Tiny `cliente` block
+- `OrderDeliveryAddress` — separate delivery address when different from customer
+- `OrderItem` — typed line items with `productId`, `sku`, `productName`, `quantity`, `unitPrice`, `totalPrice`
+- `OrderInstallment` — payment installment with `dueDate`, `amount`, `paymentMethod`
+- `OrderMarker` — tag/label with `id`, `description`, and optional `color`
+- `OrderEcommerce` — e-commerce metadata (`storeName`, `salesChannel`, `orderNumber`, etc.)
+- `OrderIntermediary` — payment intermediary (e.g. PagSeguro) with `name`, `taxId`, `paymentTaxId`
+- `OrderIntegratedPayment` — integrated payment entry with NFe-table codes
+- `PersonType` union: `'individual' | 'company' | 'foreign'`
+- `FreightResponsibility` union: `'sender' | 'recipient' | 'third-party' | 'no-freight'`
+- `Order` expanded with: `ecommerceNumber`, `estimatedAt`, `invoicedAt`, `shippedAt`, `deliveredAt`, `updatedAt`, `paymentTerms`, `paymentMethod`, `paymentMethodDescription`, `installments`, `integratedPayments`, `carrierName`, `freightResponsibility`, `freightMethod`, `shippingMethod`, `freightAmount`, `discount`, `additionalExpenses`, `itemsTotal`, `purchaseOrderNumber`, `sellerId`, `sellerName`, `invoiceId`, `warehouse`, `operationNatureId`, `trackingCode`, `trackingUrl`, `notes`, `internalNotes`, `ecommerce`, `intermediary`, `markers`
+
+#### Product stock & structure enrichment
+- `ProductStock` — full stock shape with `quantity`, `reservedQuantity`, and `deposits: ProductStockDeposit[]`
+- `ProductStockDeposit` — per-warehouse entry with `name`, `ignore`, `quantity`, `company`
+- `StockMovementType` union: `'entry' | 'exit' | 'balance'`
+- `UpdateStockInput` — structured input replacing positional `(id, quantity)` args; includes `movementType`, `date`, `unitPrice`, `notes`, `warehouse`
+- `UpdateStockResult` — typed result with `sequenceId`, `movementId`, `balanceAfter`, `reservedBalance`, `isNewRecord`
+- `StockUpdate` — per-product entry from `getStockUpdates` with deposits and `variationType`
+- `StockUpdateDeposit` — per-warehouse entry in a `StockUpdate`
+- `StockVariationType` union: `'normal' | 'parent' | 'variation'`
+- `ProductStructure` — BOM structure with typed `components: ProductStructureComponent[]`
+- `ProductStructureComponent` — `componentId`, `sku`, `name`, `quantity`
+
+#### Method signature changes (breaking)
+- `getStock(id)` now returns `Promise<ProductStock>` (was `Promise<{ quantity: number }>`)
+- `getStructure(id)` now returns `Promise<ProductStructure>` (was `Promise<unknown>`)
+- `getStockUpdates(since)` now returns `Promise<StockUpdate[]>` with deposits (was partial)
+- `updateStock(input: UpdateStockInput)` replaces `updateStock(id, quantity)` positional args; returns `Promise<UpdateStockResult>`
+
+#### AI skill
+- `ai-skill/tiny-erp-client.csv` — 70+ structured documentation entries indexed by topic, subtopic, description, signature, example, and notes
+- `ai-skill/search.py` — relevance-scored CLI search over the CSV; supports `--topic` filter and `--limit`
+- `ai-skill/SKILL.md` — concise instructions for AI assistants to use the skill
+
+#### Documentation
+- `docs/ai-skill.md` — tutorial for setting up and using the AI skill
+- `docs/api-reference.md` — fully updated with all new types and method signatures
+- `docs/basic-usage.md` — updated examples for `getStock`, `updateStock`, `getStructure`, `createOrder`
+- `docs/advanced-usage.md` — fixed `product.active` → `product.status`
+
+### Fixed
+- `updateStock` request body: was incorrectly sending `{ produto: { id, quantidade } }` — now sends `{ estoque: { idProduto, quantidade, tipo, ... } }` matching the real Tiny API
+- `getStock` response mapping: was reading nonexistent `saldo[].saldo.{id_deposito,nome_deposito}` fields — now correctly reads `produto.saldo` (total) and `produto.depositos[].deposito`
+- `getStockUpdates` response mapping: was iterating `atualizacoes[].atualizacao` — now correctly reads `produtos[].produto`
+- `order.total`: cross-endpoint compatibility for `total_pedido` (obter) vs `valor` (pesquisar)
+- `order.customer`: dual-shape handling for nested `cliente` (obter) and flat `nome`/`id_contato` (pesquisar)
+
+### Testing
+- 410 tests, 100% statement/branch/function coverage
+
+---
+
 ## [0.1.0] - 2026-03-19
 
 ### Added
@@ -70,4 +128,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[0.2.0]: https://github.com/your-org/tiny-erp-client/releases/tag/v0.2.0
 [0.1.0]: https://github.com/your-org/tiny-erp-client/releases/tag/v0.1.0
