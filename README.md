@@ -38,6 +38,14 @@ const { products, page, numberOfPages } = await client.products.searchProducts({
 
 // Get a single product
 const product = await client.products.getProduct('123456')
+console.log(product.status) // 'active' | 'inactive'
+
+// Get full stock details
+const stock = await client.products.getStock('123456')
+console.log(stock.quantity, stock.reservedQuantity)
+for (const deposit of stock.deposits) {
+  console.log(deposit.name, deposit.quantity)
+}
 
 // Search orders
 const { orders } = await client.orders.searchOrders({
@@ -103,37 +111,64 @@ client.products.updateProduct(id: string, input: Partial<Omit<Product, 'id'>>)
 // → Product  (fetches the updated record from the API)
 
 client.products.getStock(id: string)
-// → { productId: string, quantity: number }  (sum across all warehouses)
+// → ProductStock  (quantity, reservedQuantity, deposits[])
 
 client.products.getStructure(id: string)
-// → unknown  (raw BOM / bill of materials)
+// → ProductStructure  (productId, name, sku, components[])
 
 client.products.getChangedProducts(since: string)  // ISO date: 'YYYY-MM-DD'
 // → Product[]
 
 client.products.getStockUpdates(since: string)     // ISO date: 'YYYY-MM-DD'
-// → Array<{ productId: string, quantity: number }>
+// → StockUpdate[]  (per product: quantity, reservedQuantity, deposits[], updatedAt)
 
-client.products.updateStock(id: string, quantity: number)
-// → void
+client.products.updateStock(input: UpdateStockInput)
+// → UpdateStockResult  (balanceAfter, movementId, isNewRecord, ...)
 
 client.products.updatePrices(id: string, price: number)
 // → void
 ```
 
-### Product shape
+### Product shape (key fields)
 
 ```ts
 interface Product {
   id: string
   name: string
-  description?: string
   sku?: string
-  price?: number        // parsed from Tiny's string
-  weight?: number       // parsed from Tiny's string (peso_bruto)
+  status: 'active' | 'inactive'
+  type?: 'product' | 'service'
+  price?: number
+  salePrice?: number
+  costPrice?: number
+  ncm?: string
+  gtin?: string
   unit?: string
-  active: boolean       // true when Tiny situacao === 'A'
+  netWeight?: number
+  grossWeight?: number
+  brand?: string
+  category?: string
+  // ...and many more — see API Reference
 }
+```
+
+### Stock update
+
+```ts
+// Set absolute balance
+const result = await client.products.updateStock({
+  productId: '123456',
+  quantity: 100,
+})
+
+// Entry movement (add to stock)
+await client.products.updateStock({
+  productId: '123456',
+  quantity: 20,
+  movementType: 'entry',   // 'entry' | 'exit' | 'balance'
+  notes: 'Reposição',
+  warehouse: 'Depósito Principal',
+})
 ```
 
 ---
@@ -145,7 +180,7 @@ client.orders.searchOrders({
   status?: OrderStatus,
   page?: number,
   startDate?: string,  // ISO: 'YYYY-MM-DD'
-  endDate?: string,    // ISO: 'YYYY-MM-DD'
+  endDate?: string,
 })
 // → { orders: Order[], page: number, numberOfPages: number }
 
@@ -159,7 +194,7 @@ client.orders.updateOrder(id: string, input: Partial<Omit<Order, 'id' | 'number'
 // → Order  (fetches the updated record from the API)
 ```
 
-### Order shape
+### Order shape (key fields)
 
 ```ts
 type OrderStatus = 'open' | 'approved' | 'cancelled' | 'invoiced' | 'shipped' | 'delivered'
@@ -168,21 +203,59 @@ interface Order {
   id: string
   number: string
   status: OrderStatus
-  createdAt: string      // ISO: 'YYYY-MM-DD'
-  updatedAt: string      // ISO: 'YYYY-MM-DD'
+  createdAt: string           // ISO: 'YYYY-MM-DD'
+  customer: OrderCustomer     // nested object with full address
+  deliveryAddress?: OrderDeliveryAddress
   items: OrderItem[]
   total: number
-  customerId?: string
-  customerName?: string
+  freightAmount?: number
+  discount?: number
+  trackingCode?: string
+  trackingUrl?: string
+  installments?: OrderInstallment[]
+  markers?: OrderMarker[]
+  // ...and many more — see API Reference
 }
 
-interface OrderItem {
-  productId: string
-  productName: string
-  quantity: number
-  unitPrice: number
-  totalPrice: number
+interface OrderCustomer {
+  name: string
+  taxId?: string              // CPF or CNPJ
+  personType?: 'individual' | 'company' | 'foreign'
+  email?: string
+  phone?: string
+  address?: string
+  city?: string
+  state?: string
+  // ...and more
 }
+```
+
+### Creating an order
+
+```ts
+const order = await client.orders.createOrder({
+  status: 'open',
+  customer: {
+    name: 'João Silva',
+    taxId: '123.456.789-00',
+    personType: 'individual',
+    email: 'joao@example.com',
+  },
+  items: [
+    {
+      productId: '123456',
+      productName: 'Camiseta Preta M',
+      unit: 'UN',
+      quantity: 2,
+      unitPrice: 59.90,
+      totalPrice: 119.80,
+    },
+  ],
+  total: 119.80,
+  paymentMethod: 'boleto',
+  freightAmount: 15.00,
+  freightResponsibility: 'sender', // 'sender' | 'recipient' | 'third-party' | 'no-freight'
+})
 ```
 
 ---

@@ -34,7 +34,7 @@ for (const product of products) {
 
 ```ts
 const product = await client.products.getProduct('123456')
-console.log(product.sku, product.active)
+console.log(product.sku, product.status) // 'active' | 'inactive'
 ```
 
 ### Create a product
@@ -43,9 +43,12 @@ console.log(product.sku, product.active)
 const created = await client.products.createProduct({
   name: 'Camiseta Preta M',
   sku: 'CAM-PT-M',
+  status: 'active',
   price: 59.90,
   unit: 'UN',
-  active: true,
+  grossWeight: 0.3,
+  brand: 'Nike',
+  ncm: '6109.10.00',
 })
 console.log(created.id) // Tiny-assigned ID
 ```
@@ -55,20 +58,66 @@ console.log(created.id) // Tiny-assigned ID
 ```ts
 const updated = await client.products.updateProduct('123456', {
   price: 69.90,
-  active: false,
+  status: 'inactive',
 })
 ```
 
-### Stock
+### Get stock
 
 ```ts
-// Get total stock across all warehouses
-const { productId, quantity } = await client.products.getStock('123456')
+const stock = await client.products.getStock('123456')
 
-// Update stock
-await client.products.updateStock('123456', 100)
+console.log(stock.quantity)         // total balance
+console.log(stock.reservedQuantity) // committed stock
+console.log(stock.name, stock.sku)
 
-// Bulk price update
+for (const deposit of stock.deposits) {
+  console.log(deposit.name, deposit.quantity, deposit.ignore)
+}
+```
+
+### Update stock
+
+```ts
+// Set absolute stock level (balance)
+const result = await client.products.updateStock({
+  productId: '123456',
+  quantity: 100,
+})
+console.log(result.balanceAfter)  // new total stock
+console.log(result.isNewRecord)   // whether a new movement was created
+
+// Record an entry (add to stock)
+await client.products.updateStock({
+  productId: '123456',
+  quantity: 20,
+  movementType: 'entry',
+  notes: 'Reposição de estoque',
+})
+
+// Record an exit (remove from stock)
+await client.products.updateStock({
+  productId: '123456',
+  quantity: 5,
+  movementType: 'exit',
+  warehouse: 'Depósito Principal',
+})
+```
+
+### Get product structure (BOM)
+
+```ts
+const structure = await client.products.getStructure('123456')
+
+console.log(structure.name)  // kit or manufactured product name
+for (const component of structure.components) {
+  console.log(component.name, component.quantity, component.sku)
+}
+```
+
+### Update price
+
+```ts
 await client.products.updatePrices('123456', 79.90)
 ```
 
@@ -80,6 +129,10 @@ const changed = await client.products.getChangedProducts('2024-01-01')
 
 // All stock changes since a given date
 const stockUpdates = await client.products.getStockUpdates('2024-01-01')
+for (const update of stockUpdates) {
+  console.log(update.productId, update.quantity, update.updatedAt)
+  console.log(update.variationType) // 'normal' | 'parent' | 'variation'
+}
 ```
 
 ---
@@ -103,7 +156,10 @@ Available statuses: `'open'`, `'approved'`, `'cancelled'`, `'invoiced'`, `'shipp
 
 ```ts
 const order = await client.orders.getOrder('789012')
+
 console.log(order.number, order.total, order.status)
+console.log(order.customer.name, order.customer.email)
+console.log(order.trackingCode, order.trackingUrl)
 
 for (const item of order.items) {
   console.log(item.productName, item.quantity, item.unitPrice)
@@ -115,26 +171,76 @@ for (const item of order.items) {
 ```ts
 const order = await client.orders.createOrder({
   status: 'open',
+  customer: {
+    name: 'João Silva',
+    taxId: '123.456.789-00',
+    personType: 'individual',
+    email: 'joao@example.com',
+    phone: '11999999999',
+    address: 'Rua das Flores',
+    addressNumber: '100',
+    city: 'São Paulo',
+    state: 'SP',
+    zipCode: '01310-100',
+  },
   items: [
     {
       productId: '123456',
       productName: 'Camiseta Preta M',
+      unit: 'UN',
       quantity: 2,
       unitPrice: 59.90,
       totalPrice: 119.80,
     },
   ],
   total: 119.80,
-  customerId: 'CUST-001',
-  customerName: 'João Silva',
+  paymentMethod: 'boleto',
+  freightAmount: 15.00,
+  freightResponsibility: 'sender',
+  notes: 'Entregar no período da manhã',
 })
+
+console.log(order.id, order.number)
 ```
 
 ### Update an order
 
 ```ts
+// Update status
 const updated = await client.orders.updateOrder('789012', {
-  status: 'approved',
+  status: 'shipped',
+  trackingCode: 'BR123456789BR',
+  trackingUrl: 'https://correios.com.br/track',
+})
+
+// Update customer info
+await client.orders.updateOrder('789012', {
+  customer: {
+    name: 'Maria Oliveira',
+    email: 'maria@example.com',
+  },
+  internalNotes: 'Cliente VIP',
+})
+```
+
+### Delivery address
+
+When the delivery address differs from the customer address:
+
+```ts
+const order = await client.orders.createOrder({
+  status: 'open',
+  customer: { name: 'João Silva' },
+  deliveryAddress: {
+    recipientName: 'Empresa XYZ',
+    address: 'Av. Paulista',
+    addressNumber: '1000',
+    city: 'São Paulo',
+    state: 'SP',
+    zipCode: '01310-000',
+  },
+  items: [],
+  total: 0,
 })
 ```
 

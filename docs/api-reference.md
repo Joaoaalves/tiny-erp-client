@@ -24,10 +24,10 @@ The client exposes two namespaces:
 
 ## Products Endpoint
 
-### `searchProducts(input?)`
+### `searchProducts(input)`
 
 ```ts
-client.products.searchProducts(input?: SearchProductsInput): Promise<SearchProductsOutput>
+client.products.searchProducts(input: SearchProductsInput): Promise<SearchProductsOutput>
 
 interface SearchProductsInput {
   query?: string   // free-text search
@@ -66,18 +66,47 @@ Makes two API calls: one to update, one to fetch the updated record.
 ### `getStock(id)`
 
 ```ts
-client.products.getStock(id: string): Promise<{ productId: string; quantity: number }>
-```
+client.products.getStock(id: string): Promise<ProductStock>
 
-Returns the sum of stock across all warehouses (deposits).
+interface ProductStock {
+  productId: string
+  name: string
+  sku?: string
+  unit?: string
+  quantity: number          // total stock balance
+  reservedQuantity: number  // reserved (committed) stock
+  deposits: ProductStockDeposit[]
+}
+
+interface ProductStockDeposit {
+  name: string
+  ignore: boolean   // true when Tiny's desconsiderar = 'S'
+  quantity: number
+  company?: string
+}
+```
 
 ### `getStructure(id)`
 
 ```ts
-client.products.getStructure(id: string): Promise<unknown>
+client.products.getStructure(id: string): Promise<ProductStructure>
+
+interface ProductStructure {
+  productId: string
+  name: string
+  sku?: string
+  components: ProductStructureComponent[]
+}
+
+interface ProductStructureComponent {
+  componentId: string
+  sku?: string
+  name: string
+  quantity: number
+}
 ```
 
-Returns the raw bill-of-materials (BOM/estrutura) object from Tiny. Structure varies by product; shape is not normalized.
+Returns the bill-of-materials (BOM) composition of a kit or manufactured product.
 
 ### `getChangedProducts(since)`
 
@@ -91,14 +120,61 @@ Returns all products modified on or after `since`.
 ### `getStockUpdates(since)`
 
 ```ts
-client.products.getStockUpdates(since: string): Promise<Array<{ productId: string; quantity: number }>>
+client.products.getStockUpdates(since: string): Promise<StockUpdate[]>
 // since: ISO date string 'YYYY-MM-DD'
+
+interface StockUpdate {
+  productId: string
+  name: string
+  sku?: string
+  unit?: string
+  variationType?: StockVariationType  // 'normal' | 'parent' | 'variation'
+  location?: string
+  updatedAt: string                   // raw datetime from Tiny API
+  quantity: number
+  reservedQuantity: number
+  deposits: StockUpdateDeposit[]
+}
+
+interface StockUpdateDeposit {
+  name: string
+  ignore: boolean
+  quantity: number
+}
+
+type StockVariationType = 'normal' | 'parent' | 'variation'
 ```
 
-### `updateStock(id, quantity)`
+> Requires the **"API para estoque em tempo real"** extension on your Tiny account. Records are removed from the queue after retrieval.
+
+### `updateStock(input)`
 
 ```ts
-client.products.updateStock(id: string, quantity: number): Promise<void>
+client.products.updateStock(input: UpdateStockInput): Promise<UpdateStockResult>
+
+interface UpdateStockInput {
+  productId: string
+  quantity: number
+  movementType?: StockMovementType  // default: omitted (Tiny uses 'B' as default)
+  date?: string                     // datetime string, e.g. '2024-03-15 10:00:00'
+  unitPrice?: number
+  notes?: string
+  warehouse?: string                // warehouse name; uses Tiny default if omitted
+}
+
+type StockMovementType = 'entry' | 'exit' | 'balance'
+// entry   → 'E' — adds to stock
+// exit    → 'S' — removes from stock
+// balance → 'B' — sets absolute stock level
+
+interface UpdateStockResult {
+  sequenceId: string
+  status: string
+  movementId: number
+  balanceAfter: number
+  reservedBalance: number
+  isNewRecord: boolean
+}
 ```
 
 ### `updatePrices(id, price)`
@@ -113,14 +189,89 @@ client.products.updatePrices(id: string, price: number): Promise<void>
 
 ```ts
 interface Product {
+  // Identity
   id: string
   name: string
-  description?: string
   sku?: string
-  price?: number    // parsed from Tiny's string (comma decimals → float)
-  weight?: number   // parsed from Tiny's peso_bruto
+  createdAt?: string          // ISO: 'YYYY-MM-DD'
+
+  // Status
+  status: ProductStatus       // 'active' | 'inactive'
+  type?: ProductType          // 'product' | 'service'
+
+  // Pricing
+  price?: number
+  salePrice?: number
+  costPrice?: number
+  averageCostPrice?: number
+
+  // Fiscal
+  ncm?: string
+  origin?: string             // ICMS origin code (0–8)
+  gtin?: string
+  gtinPackaging?: string
+  ipiClass?: string
+  fixedIpiValue?: number
+  serviceListCode?: string
+  cest?: string
+
+  // Physical
   unit?: string
-  active: boolean   // true when Tiny situacao === 'A'
+  unitsPerBox?: string
+  netWeight?: number
+  grossWeight?: number
+
+  // Packaging (cm)
+  packagingType?: PackagingType   // 'envelope' | 'box' | 'cylinder'
+  packagingHeight?: number
+  packagingWidth?: number
+  packagingLength?: number
+  packagingDiameter?: number
+
+  // Stock thresholds
+  minStock?: number
+  maxStock?: number
+
+  // Supplier
+  supplierId?: string
+  supplierCode?: string
+  supplierProductCode?: string
+
+  // Classification
+  class?: ProductClass        // 'simple' | 'kit' | 'with-variations' | 'manufactured' | 'raw-material'
+  brand?: string
+  category?: string
+  location?: string
+
+  // Variations
+  variationType?: ProductVariationType  // 'normal' | 'parent' | 'variation'
+  parentProductId?: string
+  attributes?: Record<string, string>
+  variations?: ProductVariation[]
+
+  // Kit
+  kitItems?: ProductKitItem[]
+
+  // Fulfillment
+  madeToOrder?: boolean
+  preparationDays?: number
+
+  // Content
+  description?: string
+  notes?: string
+  warranty?: string
+  attachments?: string[]
+  externalImages?: string[]
+
+  // SEO / e-commerce
+  seoTitle?: string
+  seoKeywords?: string
+  seoDescription?: string
+  videoLink?: string
+  slug?: string
+
+  // E-commerce mappings
+  mappings?: ProductMapping[]
 }
 ```
 
@@ -128,10 +279,10 @@ interface Product {
 
 ## Orders Endpoint
 
-### `searchOrders(input?)`
+### `searchOrders(input)`
 
 ```ts
-client.orders.searchOrders(input?: SearchOrdersInput): Promise<SearchOrdersOutput>
+client.orders.searchOrders(input: SearchOrdersInput): Promise<SearchOrdersOutput>
 
 interface SearchOrdersInput {
   status?: OrderStatus
@@ -179,32 +330,157 @@ Makes two API calls: one to update, one to fetch the updated record.
 ## Order shape
 
 ```ts
-type OrderStatus =
-  | 'open'
-  | 'approved'
-  | 'cancelled'
-  | 'invoiced'
-  | 'shipped'
-  | 'delivered'
+type OrderStatus = 'open' | 'approved' | 'cancelled' | 'invoiced' | 'shipped' | 'delivered'
+type PersonType = 'individual' | 'company' | 'foreign'
+type FreightResponsibility = 'sender' | 'recipient' | 'third-party' | 'no-freight'
 
 interface Order {
+  // Identity
   id: string
-  number: string
+  number: string              // Tiny internal order number
+  ecommerceNumber?: string    // E-commerce platform order number
+
+  // Status
   status: OrderStatus
-  createdAt: string     // ISO: 'YYYY-MM-DD'
-  updatedAt: string     // ISO: 'YYYY-MM-DD'
+
+  // Dates (ISO: 'YYYY-MM-DD')
+  createdAt: string
+  estimatedAt?: string
+  invoicedAt?: string
+  shippedAt?: string
+  deliveredAt?: string
+  updatedAt?: string
+
+  // Parties
+  customer: OrderCustomer
+  deliveryAddress?: OrderDeliveryAddress
+
+  // Items
   items: OrderItem[]
+
+  // Payment
+  paymentTerms?: string
+  paymentMethod?: string
+  paymentMethodDescription?: string
+  installments?: OrderInstallment[]
+  integratedPayments?: OrderIntegratedPayment[]
+
+  // Shipping
+  carrierName?: string
+  freightResponsibility?: FreightResponsibility
+  freightMethod?: string
+  shippingMethod?: string
+
+  // Financials
+  freightAmount?: number
+  discount?: number
+  additionalExpenses?: number
+  itemsTotal?: number
   total: number
-  customerId?: string
-  customerName?: string
+
+  // References
+  purchaseOrderNumber?: string
+  sellerId?: string
+  sellerName?: string
+  invoiceId?: string
+  warehouse?: string
+  operationNatureId?: string
+
+  // Tracking
+  trackingCode?: string
+  trackingUrl?: string
+
+  // Notes
+  notes?: string
+  internalNotes?: string
+
+  // E-commerce
+  ecommerce?: OrderEcommerce
+  intermediary?: OrderIntermediary
+  markers?: OrderMarker[]
+}
+
+interface OrderCustomer {
+  code?: string
+  name: string
+  tradeName?: string
+  personType?: PersonType
+  taxId?: string              // CPF or CNPJ
+  stateRegistration?: string
+  rg?: string
+  address?: string
+  addressNumber?: string
+  addressComplement?: string
+  neighborhood?: string
+  zipCode?: string
+  city?: string
+  state?: string
+  country?: string
+  phone?: string
+  email?: string
+}
+
+interface OrderDeliveryAddress {
+  personType?: PersonType
+  taxId?: string
+  recipientName?: string
+  address?: string
+  addressNumber?: string
+  addressComplement?: string
+  neighborhood?: string
+  zipCode?: string
+  city?: string
+  state?: string
+  phone?: string
+  stateRegistration?: string
 }
 
 interface OrderItem {
-  productId: string
+  productId?: string
+  sku?: string
   productName: string
+  unit?: string
   quantity: number
   unitPrice: number
   totalPrice: number
+  additionalInfo?: string
+}
+
+interface OrderInstallment {
+  days?: number
+  dueDate?: string      // ISO: 'YYYY-MM-DD'
+  amount: number
+  notes?: string
+  paymentMethod: string
+  paymentMethodDescription?: string
+}
+
+interface OrderMarker {
+  id: number
+  description: string
+  color?: string        // hex, e.g. '#FF0000'
+}
+
+interface OrderEcommerce {
+  id?: number
+  orderNumber?: string
+  salesChannelOrderNumber?: string
+  storeName?: string
+  salesChannel?: string
+}
+
+interface OrderIntermediary {
+  name: string
+  taxId: string         // CNPJ
+  paymentTaxId?: string
+}
+
+interface OrderIntegratedPayment {
+  amount: number
+  paymentType: number   // NFe payment type code
+  intermediaryTaxId: string
+  authorizationCode: string
+  cardBrandCode: number
 }
 ```
 

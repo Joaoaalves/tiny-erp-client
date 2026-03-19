@@ -95,8 +95,8 @@ const client = new TinyClient({
 })
 
 const product = await client.products.getProduct('123')
-console.log(product.name) // 'Camiseta'
-console.log(product.active) // true
+console.log(product.name)   // 'Camiseta'
+console.log(product.status) // 'active'
 ```
 
 ## Using with msw (Mock Service Worker)
@@ -127,6 +127,7 @@ test('getProduct returns mapped product', async () => {
   const client = new TinyClient({ token: 'tok', plan: 'Evoluir' })
   const product = await client.products.getProduct('123')
   expect(product.name).toBe('Camiseta')
+  expect(product.status).toBe('active')
 })
 ```
 
