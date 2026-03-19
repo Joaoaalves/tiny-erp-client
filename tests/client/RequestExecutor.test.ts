@@ -32,12 +32,14 @@ describe('RequestExecutor', () => {
   // ── URL construction ─────────────────────────────────────────────────────
 
   describe('buildUrl', () => {
-    it('prepends BASE_URL and injects token as the first query param', async () => {
+    it('prepends BASE_URL and injects token and formato=json as the first query params', async () => {
       const executor = new RequestExecutor(TOKEN, httpClient, rateLimiter)
       await executor.execute({ path: '/produtos.pesquisar', method: 'GET' })
 
       const [calledUrl] = vi.mocked(httpClient.request).mock.calls[0] as [{ url: string }][]
-      expect(calledUrl.url).toMatch(`${BASE_URL}/produtos.pesquisar?token=${TOKEN}`)
+      expect(calledUrl.url).toContain(`${BASE_URL}/produtos.pesquisar?`)
+      expect(calledUrl.url).toContain(`token=${TOKEN}`)
+      expect(calledUrl.url).toContain('formato=json')
     })
 
     it('appends extra params after the token', async () => {
@@ -59,7 +61,9 @@ describe('RequestExecutor', () => {
       await executor.execute({ path: '/produto.obter', method: 'GET' })
 
       const [called] = vi.mocked(httpClient.request).mock.calls[0] as [{ url: string }][]
-      expect(called.url).toBe(`${BASE_URL}/produto.obter?token=${TOKEN}`)
+      expect(called.url).toContain(`${BASE_URL}/produto.obter?`)
+      expect(called.url).toContain(`token=${TOKEN}`)
+      expect(called.url).toContain('formato=json')
     })
   })
 

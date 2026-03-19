@@ -32,7 +32,7 @@ export class RequestExecutor {
   }
 
   private buildUrl(path: string, params?: Record<string, string>): string {
-    const query = new URLSearchParams({ token: this.token, ...params })
+    const query = new URLSearchParams({ token: this.token, formato: 'json', ...params })
     return `${BASE_URL}${path}?${query.toString()}`
   }
 }
