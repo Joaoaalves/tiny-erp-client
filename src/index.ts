@@ -12,6 +12,15 @@ export { TinyApiError, TinyRateLimitError, TinyTransportError, TinyMappingError 
 // Products
 export type {
   Product,
+  ProductType,
+  ProductStatus,
+  ProductClass,
+  ProductVariationType,
+  PackagingType,
+  ProductVariation,
+  ProductVariationMapping,
+  ProductMapping,
+  ProductKitItem,
   SearchProductsInput,
   SearchProductsOutput,
 } from './types/products'
