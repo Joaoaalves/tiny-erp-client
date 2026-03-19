@@ -1,7 +1,12 @@
 import type {
   Product,
+  ProductStock,
+  ProductStructure,
   SearchProductsInput,
   SearchProductsOutput,
+  StockUpdate,
+  UpdateStockInput,
+  UpdateStockResult,
 } from '../../types/products'
 
 export interface ProductsModule {
@@ -9,11 +14,11 @@ export interface ProductsModule {
   getProduct(id: string): Promise<Product>
   createProduct(input: Omit<Product, 'id'>): Promise<Product>
   updateProduct(id: string, input: Partial<Omit<Product, 'id'>>): Promise<Product>
-  getStock(id: string): Promise<{ productId: string; quantity: number }>
-  getStructure(id: string): Promise<unknown>
+  getStock(id: string): Promise<ProductStock>
+  getStructure(id: string): Promise<ProductStructure>
   getChangedProducts(since: string): Promise<Product[]>
-  getStockUpdates(since: string): Promise<Array<{ productId: string; quantity: number }>>
-  updateStock(id: string, quantity: number): Promise<void>
+  getStockUpdates(since: string): Promise<StockUpdate[]>
+  updateStock(input: UpdateStockInput): Promise<UpdateStockResult>
   updatePrices(id: string, price: number): Promise<void>
 }
 

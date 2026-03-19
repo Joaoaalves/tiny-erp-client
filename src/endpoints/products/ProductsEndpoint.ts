@@ -1,4 +1,15 @@
-import type { Product, SearchProductsInput, SearchProductsOutput } from '../../types/products'
+import type {
+  Product,
+  ProductStock,
+  ProductStructure,
+  ProductStructureComponent,
+  SearchProductsInput,
+  SearchProductsOutput,
+  StockUpdate,
+  StockVariationType,
+  UpdateStockInput,
+  UpdateStockResult,
+} from '../../types/products'
 import type { ProductsModule } from './index'
 import type { RequestExecutor } from '../../client/RequestExecutor'
 import { mapProduct, mapProducts } from '../../mappers/product.mapper'
@@ -11,6 +22,7 @@ import type {
   ApiGetStockResponse,
   ApiGetStructureResponse,
   ApiGetStockUpdatesResponse,
+  ApiUpdateStockResponse,
 } from './types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -31,6 +43,18 @@ const PACKAGING_TYPE_MAP: Record<string, string> = {
   envelope: '1',
   box: '2',
   cylinder: '3',
+}
+
+const MOVEMENT_TYPE_MAP = {
+  entry: 'E',
+  exit: 'S',
+  balance: 'B',
+} as const
+
+const VARIATION_TYPE_MAP: Record<string, StockVariationType> = {
+  N: 'normal',
+  P: 'parent',
+  V: 'variation',
 }
 
 /** Converts a Product (English) to Tiny API body fields (Portuguese) */
@@ -180,7 +204,7 @@ export class ProductsEndpoint implements ProductsModule {
 
   // 5. getStock ────────────────────────────────────────────────────────────────
 
-  async getStock(id: string): Promise<{ productId: string; quantity: number }> {
+  async getStock(id: string): Promise<ProductStock> {
     const raw = await this.executor.execute<ApiGetStockResponse>({
       path: '/produto.obter.estoque',
       method: 'GET',
@@ -189,14 +213,29 @@ export class ProductsEndpoint implements ProductsModule {
 
     assertOk(raw.retorno.status, 'getStock')
 
-    const quantity = raw.retorno.produto.saldo.reduce((sum, entry) => sum + entry.saldo.saldo, 0)
+    const { produto } = raw.retorno
 
-    return { productId: String(raw.retorno.produto.id), quantity }
+    return {
+      productId: String(produto.id),
+      name: produto.nome,
+      sku: produto.codigo !== undefined && produto.codigo !== '' ? produto.codigo : undefined,
+      unit: produto.unidade !== undefined && produto.unidade !== '' ? produto.unidade : undefined,
+      quantity: produto.saldo,
+      reservedQuantity: produto.saldoReservado,
+      deposits: produto.depositos.map(d => ({
+        name: d.deposito.nome,
+        ignore: d.deposito.desconsiderar === 'S',
+        quantity: d.deposito.saldo,
+        company: d.deposito.empresa !== undefined && d.deposito.empresa !== ''
+          ? d.deposito.empresa
+          : undefined,
+      })),
+    }
   }
 
   // 6. getStructure ────────────────────────────────────────────────────────────
 
-  async getStructure(id: string): Promise<unknown> {
+  async getStructure(id: string): Promise<ProductStructure> {
     const raw = await this.executor.execute<ApiGetStructureResponse>({
       path: '/produto.obter.estrutura',
       method: 'GET',
@@ -205,7 +244,21 @@ export class ProductsEndpoint implements ProductsModule {
 
     assertOk(raw.retorno.status, 'getStructure')
 
-    return raw.retorno.produto.estrutura
+    const { produto } = raw.retorno
+
+    const components: ProductStructureComponent[] = produto.estrutura.map(c => ({
+      componentId: String(c.id_componente),
+      sku: c.codigo !== undefined && c.codigo !== '' ? c.codigo : undefined,
+      name: c.nome,
+      quantity: typeof c.quantidade === 'string' ? parseFloat(c.quantidade) : c.quantidade,
+    }))
+
+    return {
+      productId: String(produto.id),
+      name: produto.nome,
+      sku: produto.codigo !== undefined && produto.codigo !== '' ? produto.codigo : undefined,
+      components,
+    }
   }
 
   // 7. getChangedProducts ──────────────────────────────────────────────────────
@@ -224,7 +277,7 @@ export class ProductsEndpoint implements ProductsModule {
 
   // 8. getStockUpdates ─────────────────────────────────────────────────────────
 
-  async getStockUpdates(since: string): Promise<Array<{ productId: string; quantity: number }>> {
+  async getStockUpdates(since: string): Promise<StockUpdate[]> {
     const raw = await this.executor.execute<ApiGetStockUpdatesResponse>({
       path: '/produto.atualizacoes.estoque',
       method: 'GET',
@@ -233,22 +286,61 @@ export class ProductsEndpoint implements ProductsModule {
 
     assertOk(raw.retorno.status, 'getStockUpdates')
 
-    return (raw.retorno.atualizacoes ?? []).map(entry => ({
-      productId: String(entry.atualizacao.id),
-      quantity: entry.atualizacao.quantidade,
-    }))
+    return (raw.retorno.produtos ?? []).map(entry => {
+      const p = entry.produto
+      return {
+        productId: String(p.id),
+        name: p.nome,
+        sku: p.codigo !== undefined && p.codigo !== '' ? p.codigo : undefined,
+        unit: p.unidade !== undefined && p.unidade !== '' ? p.unidade : undefined,
+        variationType: p.tipo_variacao !== undefined
+          ? (VARIATION_TYPE_MAP[p.tipo_variacao] ?? undefined)
+          : undefined,
+        location: p.localizacao !== undefined && p.localizacao !== '' ? p.localizacao : undefined,
+        updatedAt: p.data_alteracao,
+        quantity: p.saldo,
+        reservedQuantity: p.saldoReservado,
+        deposits: (p.depositos ?? []).map(d => ({
+          name: d.deposito.nome,
+          ignore: d.deposito.desconsiderar === 'S',
+          quantity: d.deposito.saldo,
+        })),
+      }
+    })
   }
 
   // 9. updateStock ─────────────────────────────────────────────────────────────
 
-  async updateStock(id: string, quantity: number): Promise<void> {
-    const raw = await this.executor.execute<ApiStatusResponse>({
+  async updateStock(input: UpdateStockInput): Promise<UpdateStockResult> {
+    const estoque: Record<string, unknown> = {
+      idProduto: input.productId,
+      quantidade: input.quantity,
+    }
+
+    if (input.movementType !== undefined) estoque.tipo = MOVEMENT_TYPE_MAP[input.movementType]
+    if (input.date !== undefined) estoque.data = input.date
+    if (input.unitPrice !== undefined) estoque.precoUnitario = input.unitPrice
+    if (input.notes !== undefined) estoque.observacoes = input.notes
+    if (input.warehouse !== undefined) estoque.deposito = input.warehouse
+
+    const raw = await this.executor.execute<ApiUpdateStockResponse>({
       path: '/produto.atualizar.estoque',
       method: 'POST',
-      body: { produto: { id, quantidade: String(quantity) } },
+      body: { estoque },
     })
 
     assertOk(raw.retorno.status, 'updateStock')
+
+    const registro = raw.retorno.registros![0].registro
+
+    return {
+      sequenceId: registro.sequencia,
+      status: registro.status,
+      movementId: registro.id,
+      balanceAfter: registro.saldoEstoque,
+      reservedBalance: registro.saldoReservado,
+      isNewRecord: registro.registroCriado,
+    }
   }
 
   // 10. updatePrices ───────────────────────────────────────────────────────────

@@ -55,21 +55,81 @@ function statusResponse(status = 'OK') {
   return { retorno: { status } }
 }
 
-function stockResponse(saldo: Array<{ saldo: { id_deposito: string; nome_deposito: string; saldo: number } }> = []) {
+function stockResponse(overrides: Record<string, unknown> = {}) {
   return {
     retorno: {
       status: 'OK',
-      produto: { id: 1, saldo },
+      produto: {
+        id: 1,
+        nome: 'Camiseta Polo',
+        codigo: 'CAM001',
+        unidade: 'UN',
+        saldo: 15,
+        saldoReservado: 3,
+        depositos: [
+          { deposito: { nome: 'Depósito A', desconsiderar: 'N', saldo: 10, empresa: 'Tiny' } },
+          { deposito: { nome: 'Depósito B', desconsiderar: 'N', saldo: 5 } },
+        ],
+        ...overrides,
+      },
     },
   }
 }
 
-function structureResponse(estrutura: unknown = []) {
-  return { retorno: { status: 'OK', produto: { estrutura } } }
+function updateStockResponse(status = 'OK') {
+  return {
+    retorno: {
+      status,
+      registros: status === 'OK'
+        ? [{
+            registro: {
+              sequencia: '1',
+              status: 'Estoque atualizado com sucesso',
+              id: 999,
+              saldoEstoque: 25,
+              saldoReservado: 3,
+              registroCriado: true,
+            },
+          }]
+        : undefined,
+    },
+  }
 }
 
-function stockUpdatesResponse(atualizacoes?: Array<{ atualizacao: { id: number; quantidade: number } }>) {
-  return { retorno: { status: 'OK', atualizacoes } }
+function structureResponse(estrutura: unknown[] = [], overrides: Record<string, unknown> = {}) {
+  return {
+    retorno: {
+      status: 'OK',
+      produto: {
+        id: 1,
+        nome: 'Kit Camiseta',
+        codigo: 'KIT001',
+        estrutura,
+        ...overrides,
+      },
+    },
+  }
+}
+
+function stockUpdatesResponse(produtos?: unknown[]) {
+  return { retorno: { status: 'OK', produtos } }
+}
+
+const SAMPLE_STOCK_UPDATE_PRODUTO = {
+  produto: {
+    id: 1,
+    nome: 'Camiseta Polo',
+    codigo: 'CAM001',
+    unidade: 'UN',
+    tipo_variacao: 'N',
+    localizacao: 'Prateleira A',
+    data_alteracao: '15/03/2024 10:00:00',
+    saldo: 10,
+    saldoReservado: 2,
+    depositos: [
+      { deposito: { nome: 'Depósito A', desconsiderar: 'N', saldo: 10 } },
+    ],
+  },
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -339,37 +399,83 @@ describe('ProductsEndpoint', () => {
 
   describe('getStock', () => {
     it('calls /produto.obter.estoque with GET and id param', async () => {
-      const executor = makeExecutor(stockResponse([]))
+      const executor = makeExecutor(stockResponse())
       await new ProductsEndpoint(executor).getStock('10')
       expect(executor.execute).toHaveBeenCalledWith(
         expect.objectContaining({ path: '/produto.obter.estoque', method: 'GET', params: { id: '10' } }),
       )
     })
 
-    it('sums stock across all deposits', async () => {
-      const saldo = [
-        { saldo: { id_deposito: '1', nome_deposito: 'Dep A', saldo: 10 } },
-        { saldo: { id_deposito: '2', nome_deposito: 'Dep B', saldo: 5 } },
-      ]
-      const result = await new ProductsEndpoint(makeExecutor(stockResponse(saldo))).getStock('1')
-      expect(result.quantity).toBe(15)
-    })
-
-    it('returns quantity=0 when no deposits exist', async () => {
-      const result = await new ProductsEndpoint(makeExecutor(stockResponse([]))).getStock('1')
-      expect(result.quantity).toBe(0)
-    })
-
-    it('returns the productId as string', async () => {
-      const executor = makeExecutor({ retorno: { status: 'OK', produto: { id: 99, saldo: [] } } })
-      const result = await new ProductsEndpoint(executor).getStock('99')
+    it('returns productId as string', async () => {
+      const result = await new ProductsEndpoint(makeExecutor(stockResponse({ id: 99 }))).getStock('99')
       expect(result.productId).toBe('99')
+    })
+
+    it('returns product name, sku, and unit', async () => {
+      const result = await new ProductsEndpoint(makeExecutor(stockResponse())).getStock('1')
+      expect(result.name).toBe('Camiseta Polo')
+      expect(result.sku).toBe('CAM001')
+      expect(result.unit).toBe('UN')
+    })
+
+    it('returns sku=undefined when codigo is empty', async () => {
+      const result = await new ProductsEndpoint(makeExecutor(stockResponse({ codigo: '' }))).getStock('1')
+      expect(result.sku).toBeUndefined()
+    })
+
+    it('returns total quantity from saldo field', async () => {
+      const result = await new ProductsEndpoint(makeExecutor(stockResponse({ saldo: 42 }))).getStock('1')
+      expect(result.quantity).toBe(42)
+    })
+
+    it('returns reservedQuantity from saldoReservado field', async () => {
+      const result = await new ProductsEndpoint(makeExecutor(stockResponse({ saldoReservado: 7 }))).getStock('1')
+      expect(result.reservedQuantity).toBe(7)
+    })
+
+    it('returns mapped deposits', async () => {
+      const result = await new ProductsEndpoint(makeExecutor(stockResponse())).getStock('1')
+      expect(result.deposits).toHaveLength(2)
+      expect(result.deposits[0]).toMatchObject({
+        name: 'Depósito A',
+        ignore: false,
+        quantity: 10,
+        company: 'Tiny',
+      })
+    })
+
+    it('maps desconsiderar "S" to ignore=true', async () => {
+      const result = await new ProductsEndpoint(
+        makeExecutor(stockResponse({
+          depositos: [{ deposito: { nome: 'Dep', desconsiderar: 'S', saldo: 0 } }],
+        })),
+      ).getStock('1')
+      expect(result.deposits[0].ignore).toBe(true)
+    })
+
+    it('maps desconsiderar "N" to ignore=false', async () => {
+      const result = await new ProductsEndpoint(
+        makeExecutor(stockResponse({
+          depositos: [{ deposito: { nome: 'Dep', desconsiderar: 'N', saldo: 5 } }],
+        })),
+      ).getStock('1')
+      expect(result.deposits[0].ignore).toBe(false)
+    })
+
+    it('returns company=undefined when empresa is absent', async () => {
+      const result = await new ProductsEndpoint(makeExecutor(stockResponse())).getStock('1')
+      expect(result.deposits[1].company).toBeUndefined()
+    })
+
+    it('returns empty deposits array when depositos is empty', async () => {
+      const result = await new ProductsEndpoint(makeExecutor(stockResponse({ depositos: [] }))).getStock('1')
+      expect(result.deposits).toEqual([])
     })
 
     it('throws TinyApiError when status is not OK', async () => {
       await expect(
         new ProductsEndpoint(
-          makeExecutor({ retorno: { status: 'Erro', produto: { id: 1, saldo: [] } } }),
+          makeExecutor({ retorno: { status: 'Erro', produto: { id: 1, nome: 'X', saldo: 0, saldoReservado: 0, depositos: [] } } }),
         ).getStock('1'),
       ).rejects.toThrow(TinyApiError)
     })
@@ -386,16 +492,62 @@ describe('ProductsEndpoint', () => {
       )
     })
 
-    it('returns the raw estrutura data', async () => {
-      const estrutura = [{ componente: { id: 1, nome: 'Tecido', quantidade: 1.5 } }]
+    it('returns productId, name, and sku', async () => {
+      const result = await new ProductsEndpoint(makeExecutor(structureResponse())).getStructure('7')
+      expect(result.productId).toBe('1')
+      expect(result.name).toBe('Kit Camiseta')
+      expect(result.sku).toBe('KIT001')
+    })
+
+    it('returns sku=undefined when codigo is empty', async () => {
+      const result = await new ProductsEndpoint(
+        makeExecutor(structureResponse([], { codigo: '' })),
+      ).getStructure('7')
+      expect(result.sku).toBeUndefined()
+    })
+
+    it('returns mapped components', async () => {
+      const estrutura = [
+        { id_componente: 10, codigo: 'COMP001', nome: 'Tecido', quantidade: 1.5 },
+        { id_componente: 11, nome: 'Botão', quantidade: 4 },
+      ]
       const result = await new ProductsEndpoint(makeExecutor(structureResponse(estrutura))).getStructure('7')
-      expect(result).toEqual(estrutura)
+      expect(result.components).toHaveLength(2)
+      expect(result.components[0]).toMatchObject({
+        componentId: '10',
+        sku: 'COMP001',
+        name: 'Tecido',
+        quantity: 1.5,
+      })
+    })
+
+    it('converts componentId to string', async () => {
+      const estrutura = [{ id_componente: 99, nome: 'Peça', quantidade: 1 }]
+      const result = await new ProductsEndpoint(makeExecutor(structureResponse(estrutura))).getStructure('7')
+      expect(result.components[0].componentId).toBe('99')
+    })
+
+    it('parses quantity as float when given as string', async () => {
+      const estrutura = [{ id_componente: 1, nome: 'Peça', quantidade: '2.5' }]
+      const result = await new ProductsEndpoint(makeExecutor(structureResponse(estrutura))).getStructure('7')
+      expect(result.components[0].quantity).toBe(2.5)
+    })
+
+    it('returns sku=undefined when component codigo is absent', async () => {
+      const estrutura = [{ id_componente: 1, nome: 'Peça', quantidade: 1 }]
+      const result = await new ProductsEndpoint(makeExecutor(structureResponse(estrutura))).getStructure('7')
+      expect(result.components[0].sku).toBeUndefined()
+    })
+
+    it('returns empty components array when estrutura is empty', async () => {
+      const result = await new ProductsEndpoint(makeExecutor(structureResponse([]))).getStructure('7')
+      expect(result.components).toEqual([])
     })
 
     it('throws TinyApiError when status is not OK', async () => {
       await expect(
         new ProductsEndpoint(
-          makeExecutor({ retorno: { status: 'Erro', produto: { estrutura: [] } } }),
+          makeExecutor({ retorno: { status: 'Erro', produto: { id: 1, nome: 'X', estrutura: [] } } }),
         ).getStructure('7'),
       ).rejects.toThrow(TinyApiError)
     })
@@ -451,20 +603,72 @@ describe('ProductsEndpoint', () => {
       )
     })
 
-    it('returns mapped stock updates', async () => {
-      const atualizacoes = [
-        { atualizacao: { id: 1, quantidade: 10 } },
-        { atualizacao: { id: 2, quantidade: 5 } },
-      ]
+    it('returns mapped stock updates with all fields', async () => {
       const result = await new ProductsEndpoint(
-        makeExecutor(stockUpdatesResponse(atualizacoes)),
+        makeExecutor(stockUpdatesResponse([SAMPLE_STOCK_UPDATE_PRODUTO])),
       ).getStockUpdates('2024-01-01')
-      expect(result).toHaveLength(2)
-      expect(result[0]).toEqual({ productId: '1', quantity: 10 })
-      expect(result[1]).toEqual({ productId: '2', quantity: 5 })
+      expect(result).toHaveLength(1)
+      expect(result[0]).toMatchObject({
+        productId: '1',
+        name: 'Camiseta Polo',
+        sku: 'CAM001',
+        unit: 'UN',
+        variationType: 'normal',
+        location: 'Prateleira A',
+        updatedAt: '15/03/2024 10:00:00',
+        quantity: 10,
+        reservedQuantity: 2,
+      })
     })
 
-    it('returns empty array when atualizacoes is absent', async () => {
+    it('maps tipo_variacao "N" to variationType "normal"', async () => {
+      const result = await new ProductsEndpoint(
+        makeExecutor(stockUpdatesResponse([SAMPLE_STOCK_UPDATE_PRODUTO])),
+      ).getStockUpdates('2024-01-01')
+      expect(result[0].variationType).toBe('normal')
+    })
+
+    it('maps tipo_variacao "P" to variationType "parent"', async () => {
+      const p = { produto: { ...SAMPLE_STOCK_UPDATE_PRODUTO.produto, tipo_variacao: 'P' } }
+      const result = await new ProductsEndpoint(
+        makeExecutor(stockUpdatesResponse([p])),
+      ).getStockUpdates('2024-01-01')
+      expect(result[0].variationType).toBe('parent')
+    })
+
+    it('maps tipo_variacao "V" to variationType "variation"', async () => {
+      const p = { produto: { ...SAMPLE_STOCK_UPDATE_PRODUTO.produto, tipo_variacao: 'V' } }
+      const result = await new ProductsEndpoint(
+        makeExecutor(stockUpdatesResponse([p])),
+      ).getStockUpdates('2024-01-01')
+      expect(result[0].variationType).toBe('variation')
+    })
+
+    it('returns variationType=undefined for unknown tipo_variacao', async () => {
+      const p = { produto: { ...SAMPLE_STOCK_UPDATE_PRODUTO.produto, tipo_variacao: 'X' } }
+      const result = await new ProductsEndpoint(
+        makeExecutor(stockUpdatesResponse([p])),
+      ).getStockUpdates('2024-01-01')
+      expect(result[0].variationType).toBeUndefined()
+    })
+
+    it('returns mapped deposits', async () => {
+      const result = await new ProductsEndpoint(
+        makeExecutor(stockUpdatesResponse([SAMPLE_STOCK_UPDATE_PRODUTO])),
+      ).getStockUpdates('2024-01-01')
+      expect(result[0].deposits).toHaveLength(1)
+      expect(result[0].deposits[0]).toMatchObject({ name: 'Depósito A', ignore: false, quantity: 10 })
+    })
+
+    it('returns empty deposits when depositos is absent', async () => {
+      const p = { produto: { ...SAMPLE_STOCK_UPDATE_PRODUTO.produto, depositos: undefined } }
+      const result = await new ProductsEndpoint(
+        makeExecutor(stockUpdatesResponse([p])),
+      ).getStockUpdates('2024-01-01')
+      expect(result[0].deposits).toEqual([])
+    })
+
+    it('returns empty array when produtos is absent', async () => {
       const result = await new ProductsEndpoint(
         makeExecutor(stockUpdatesResponse(undefined)),
       ).getStockUpdates('2024-01-01')
@@ -481,26 +685,84 @@ describe('ProductsEndpoint', () => {
   // ── 9. updateStock ──────────────────────────────────────────────────────────
 
   describe('updateStock', () => {
-    it('calls /produto.atualizar.estoque with POST, id and quantity as string', async () => {
-      const executor = makeExecutor(statusResponse())
-      await new ProductsEndpoint(executor).updateStock('3', 25)
+    it('calls /produto.atualizar.estoque with POST', async () => {
+      const executor = makeExecutor(updateStockResponse())
+      await new ProductsEndpoint(executor).updateStock({ productId: '3', quantity: 25 })
       expect(executor.execute).toHaveBeenCalledWith(
-        expect.objectContaining({
-          path: '/produto.atualizar.estoque',
-          method: 'POST',
-          body: { produto: { id: '3', quantidade: '25' } },
-        }),
+        expect.objectContaining({ path: '/produto.atualizar.estoque', method: 'POST' }),
       )
     })
 
-    it('resolves void on success', async () => {
-      const result = await new ProductsEndpoint(makeExecutor(statusResponse())).updateStock('3', 25)
-      expect(result).toBeUndefined()
+    it('sends idProduto and quantidade in estoque body', async () => {
+      const executor = makeExecutor(updateStockResponse())
+      await new ProductsEndpoint(executor).updateStock({ productId: '3', quantity: 25 })
+      const body = vi.mocked(executor.execute).mock.calls[0][0].body as { estoque: Record<string, unknown> }
+      expect(body.estoque.idProduto).toBe('3')
+      expect(body.estoque.quantidade).toBe(25)
+    })
+
+    it('sends tipo "B" when movementType is "balance"', async () => {
+      const executor = makeExecutor(updateStockResponse())
+      await new ProductsEndpoint(executor).updateStock({ productId: '1', quantity: 10, movementType: 'balance' })
+      const body = vi.mocked(executor.execute).mock.calls[0][0].body as { estoque: Record<string, unknown> }
+      expect(body.estoque.tipo).toBe('B')
+    })
+
+    it('sends tipo "E" when movementType is "entry"', async () => {
+      const executor = makeExecutor(updateStockResponse())
+      await new ProductsEndpoint(executor).updateStock({ productId: '1', quantity: 5, movementType: 'entry' })
+      const body = vi.mocked(executor.execute).mock.calls[0][0].body as { estoque: Record<string, unknown> }
+      expect(body.estoque.tipo).toBe('E')
+    })
+
+    it('sends tipo "S" when movementType is "exit"', async () => {
+      const executor = makeExecutor(updateStockResponse())
+      await new ProductsEndpoint(executor).updateStock({ productId: '1', quantity: 3, movementType: 'exit' })
+      const body = vi.mocked(executor.execute).mock.calls[0][0].body as { estoque: Record<string, unknown> }
+      expect(body.estoque.tipo).toBe('S')
+    })
+
+    it('omits tipo when movementType is not provided', async () => {
+      const executor = makeExecutor(updateStockResponse())
+      await new ProductsEndpoint(executor).updateStock({ productId: '1', quantity: 10 })
+      const body = vi.mocked(executor.execute).mock.calls[0][0].body as { estoque: Record<string, unknown> }
+      expect(body.estoque.tipo).toBeUndefined()
+    })
+
+    it('sends optional fields when provided', async () => {
+      const executor = makeExecutor(updateStockResponse())
+      await new ProductsEndpoint(executor).updateStock({
+        productId: '1',
+        quantity: 10,
+        date: '2024-03-15',
+        unitPrice: 59.9,
+        notes: 'Reposição',
+        warehouse: 'Depósito Principal',
+      })
+      const body = vi.mocked(executor.execute).mock.calls[0][0].body as { estoque: Record<string, unknown> }
+      expect(body.estoque.data).toBe('2024-03-15')
+      expect(body.estoque.precoUnitario).toBe(59.9)
+      expect(body.estoque.observacoes).toBe('Reposição')
+      expect(body.estoque.deposito).toBe('Depósito Principal')
+    })
+
+    it('returns mapped UpdateStockResult', async () => {
+      const result = await new ProductsEndpoint(
+        makeExecutor(updateStockResponse()),
+      ).updateStock({ productId: '1', quantity: 25 })
+      expect(result).toMatchObject({
+        sequenceId: '1',
+        status: 'Estoque atualizado com sucesso',
+        movementId: 999,
+        balanceAfter: 25,
+        reservedBalance: 3,
+        isNewRecord: true,
+      })
     })
 
     it('throws TinyApiError when status is not OK', async () => {
       await expect(
-        new ProductsEndpoint(makeExecutor(statusResponse('Erro'))).updateStock('3', 25),
+        new ProductsEndpoint(makeExecutor(updateStockResponse('Erro'))).updateStock({ productId: '3', quantity: 25 }),
       ).rejects.toThrow(TinyApiError)
     })
   })
@@ -542,7 +804,7 @@ describe('ProductsEndpoint', () => {
       ['getStructure', ep => ep.getStructure('1')],
       ['getChangedProducts', ep => ep.getChangedProducts('2024-01-01')],
       ['getStockUpdates', ep => ep.getStockUpdates('2024-01-01')],
-      ['updateStock', ep => ep.updateStock('1', 10)],
+      ['updateStock', ep => ep.updateStock({ productId: '1', quantity: 10 })],
       ['updatePrices', ep => ep.updatePrices('1', 50)],
     ]
 
