@@ -27,16 +27,84 @@ function toTinyDate(iso: string): string {
   return `${day}/${month}/${year}`
 }
 
+const PACKAGING_TYPE_MAP: Record<string, string> = {
+  envelope: '1',
+  box: '2',
+  cylinder: '3',
+}
+
 /** Converts a Product (English) to Tiny API body fields (Portuguese) */
-function toApiBody(input: Partial<Omit<Product, 'id'>>): Record<string, string | undefined> {
+function toApiBody(input: Partial<Omit<Product, 'id'>>): Record<string, unknown> {
   return {
+    // Identity
     nome: input.name,
     codigo: input.sku,
+
+    // Status
+    situacao: input.status !== undefined ? (input.status === 'active' ? 'A' : 'I') : undefined,
+    tipo: input.type !== undefined ? (input.type === 'product' ? 'P' : 'S') : undefined,
+
+    // Pricing
     preco: input.price !== undefined ? String(input.price) : undefined,
+    preco_promocional: input.salePrice !== undefined ? String(input.salePrice) : undefined,
+    preco_custo: input.costPrice !== undefined ? String(input.costPrice) : undefined,
+
+    // Fiscal
+    ncm: input.ncm,
+    origem: input.origin,
+    gtin: input.gtin,
+    gtin_embalagem: input.gtinPackaging,
+    classe_ipi: input.ipiClass,
+    valor_ipi_fixo: input.fixedIpiValue !== undefined ? String(input.fixedIpiValue) : undefined,
+    cod_lista_servicos: input.serviceListCode,
+    cest: input.cest,
+
+    // Physical
     unidade: input.unit,
-    peso_bruto: input.weight !== undefined ? String(input.weight) : undefined,
-    descricao: input.description,
-    situacao: input.active !== undefined ? (input.active ? 'A' : 'I') : undefined,
+    unidade_por_caixa: input.unitsPerBox,
+    peso_liquido: input.netWeight !== undefined ? String(input.netWeight) : undefined,
+    peso_bruto: input.grossWeight !== undefined ? String(input.grossWeight) : undefined,
+
+    // Packaging dimensions
+    tipoEmbalagem:
+      input.packagingType !== undefined ? PACKAGING_TYPE_MAP[input.packagingType] : undefined,
+    alturaEmbalagem: input.packagingHeight !== undefined ? String(input.packagingHeight) : undefined,
+    larguraEmbalagem: input.packagingWidth !== undefined ? String(input.packagingWidth) : undefined,
+    comprimentoEmbalagem:
+      input.packagingLength !== undefined ? String(input.packagingLength) : undefined,
+    diametroEmbalagem:
+      input.packagingDiameter !== undefined ? String(input.packagingDiameter) : undefined,
+
+    // Stock
+    estoque_minimo: input.minStock !== undefined ? String(input.minStock) : undefined,
+    estoque_maximo: input.maxStock !== undefined ? String(input.maxStock) : undefined,
+
+    // Supplier
+    id_fornecedor: input.supplierId,
+    codigo_fornecedor: input.supplierCode,
+    codigo_pelo_fornecedor: input.supplierProductCode,
+
+    // Classification
+    marca: input.brand,
+    categoria: input.category,
+    localizacao: input.location,
+
+    // Fulfillment
+    sob_encomenda: input.madeToOrder !== undefined ? (input.madeToOrder ? 'S' : 'N') : undefined,
+    dias_preparacao:
+      input.preparationDays !== undefined ? String(input.preparationDays) : undefined,
+
+    // Content
+    descricao_complementar: input.description,
+    obs: input.notes,
+    garantia: input.warranty,
+
+    // SEO
+    seo_title: input.seoTitle,
+    seo_keywords: input.seoKeywords,
+    seo_description: input.seoDescription,
+    link_video: input.videoLink,
+    slug: input.slug,
   }
 }
 

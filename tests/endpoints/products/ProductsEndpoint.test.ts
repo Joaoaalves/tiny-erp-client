@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { ProductsEndpoint } from '../../../src/endpoints/products/ProductsEndpoint'
 import type { RequestExecutor } from '../../../src/client/RequestExecutor'
 import { TinyApiError } from '../../../src/errors'
 
-// ── Mock executor ─────────────────────────────────────────────────────────────
+// ── Mock executor ──────────────────────────────────────────────────────────────
 
 function makeExecutor(resolveWith: unknown): RequestExecutor {
   return { execute: vi.fn().mockResolvedValue(resolveWith) } as unknown as RequestExecutor
@@ -13,7 +13,7 @@ function makeFailing(error: Error): RequestExecutor {
   return { execute: vi.fn().mockRejectedValue(error) } as unknown as RequestExecutor
 }
 
-// ── Tiny API response factories ───────────────────────────────────────────────
+// ── Tiny API response factories ────────────────────────────────────────────────
 
 const OK_PRODUCT = {
   id: 1,
@@ -22,7 +22,7 @@ const OK_PRODUCT = {
   preco: '59.90',
   unidade: 'UN',
   peso_bruto: '0.300',
-  descricao: 'Camiseta polo',
+  descricao_complementar: 'Camiseta polo',
   situacao: 'A',
 }
 
@@ -80,8 +80,7 @@ describe('ProductsEndpoint', () => {
   describe('searchProducts', () => {
     it('calls /produtos.pesquisar with GET', async () => {
       const executor = makeExecutor(searchResponse())
-      const ep = new ProductsEndpoint(executor)
-      await ep.searchProducts({})
+      await new ProductsEndpoint(executor).searchProducts({})
       expect(executor.execute).toHaveBeenCalledWith(
         expect.objectContaining({ path: '/produtos.pesquisar', method: 'GET' }),
       )
@@ -111,8 +110,7 @@ describe('ProductsEndpoint', () => {
     })
 
     it('returns mapped products, page, and numberOfPages', async () => {
-      const executor = makeExecutor(searchResponse())
-      const result = await new ProductsEndpoint(executor).searchProducts({})
+      const result = await new ProductsEndpoint(makeExecutor(searchResponse())).searchProducts({})
       expect(result.page).toBe(1)
       expect(result.numberOfPages).toBe(3)
       expect(result.products).toHaveLength(1)
@@ -120,14 +118,16 @@ describe('ProductsEndpoint', () => {
     })
 
     it('returns empty products array when Tiny returns no produtos', async () => {
-      const executor = makeExecutor(searchResponse({ produtos: undefined }))
-      const result = await new ProductsEndpoint(executor).searchProducts({})
+      const result = await new ProductsEndpoint(
+        makeExecutor(searchResponse({ produtos: undefined })),
+      ).searchProducts({})
       expect(result.products).toEqual([])
     })
 
     it('throws TinyApiError when status is not OK', async () => {
-      const executor = makeExecutor(searchResponse({ status: 'Erro' }))
-      await expect(new ProductsEndpoint(executor).searchProducts({})).rejects.toThrow(TinyApiError)
+      await expect(
+        new ProductsEndpoint(makeExecutor(searchResponse({ status: 'Erro' }))).searchProducts({}),
+      ).rejects.toThrow(TinyApiError)
     })
   })
 
@@ -143,16 +143,18 @@ describe('ProductsEndpoint', () => {
     })
 
     it('returns the mapped product', async () => {
-      const executor = makeExecutor(getProductResponse())
-      const product = await new ProductsEndpoint(executor).getProduct('1')
+      const product = await new ProductsEndpoint(makeExecutor(getProductResponse())).getProduct('1')
       expect(product.id).toBe('1')
       expect(product.name).toBe('Camiseta Polo')
-      expect(product.active).toBe(true)
+      expect(product.status).toBe('active')
     })
 
     it('throws TinyApiError when status is not OK', async () => {
-      const executor = makeExecutor({ retorno: { status: 'Erro', produto: OK_PRODUCT } })
-      await expect(new ProductsEndpoint(executor).getProduct('1')).rejects.toThrow(TinyApiError)
+      await expect(
+        new ProductsEndpoint(
+          makeExecutor({ retorno: { status: 'Erro', produto: OK_PRODUCT } }),
+        ).getProduct('1'),
+      ).rejects.toThrow(TinyApiError)
     })
   })
 
@@ -160,19 +162,18 @@ describe('ProductsEndpoint', () => {
 
   describe('createProduct', () => {
     it('calls /produto.incluir with POST and translated body', async () => {
-      const executor = makeExecutor(createResponse())
-      // Mock second call (getProduct after create)
+      const executor = makeExecutor(null)
       vi.mocked(executor.execute)
         .mockResolvedValueOnce(createResponse())
         .mockResolvedValueOnce(getProductResponse())
 
       await new ProductsEndpoint(executor).createProduct({
         name: 'Camiseta Polo',
-        active: true,
+        status: 'active',
         price: 59.9,
         sku: 'CAM001',
         unit: 'UN',
-        weight: 0.3,
+        grossWeight: 0.3,
         description: 'Desc',
       })
 
@@ -193,7 +194,7 @@ describe('ProductsEndpoint', () => {
         .mockResolvedValueOnce(createResponse(77))
         .mockResolvedValueOnce(getProductResponse({ id: 77 }))
 
-      await new ProductsEndpoint(executor).createProduct({ name: 'X', active: false })
+      await new ProductsEndpoint(executor).createProduct({ name: 'X', status: 'inactive' })
 
       expect(executor.execute).toHaveBeenCalledTimes(2)
       const secondCall = vi.mocked(executor.execute).mock.calls[1]
@@ -206,24 +207,23 @@ describe('ProductsEndpoint', () => {
         .mockResolvedValueOnce(createResponse(1))
         .mockResolvedValueOnce(getProductResponse())
 
-      const result = await new ProductsEndpoint(executor).createProduct({ name: 'X', active: true })
+      const result = await new ProductsEndpoint(executor).createProduct({ name: 'X', status: 'active' })
       expect(result.name).toBe('Camiseta Polo')
     })
 
     it('throws TinyApiError when create status is not OK', async () => {
-      const executor = makeExecutor(statusResponse('Erro'))
       await expect(
-        new ProductsEndpoint(executor).createProduct({ name: 'X', active: true }),
+        new ProductsEndpoint(makeExecutor(statusResponse('Erro'))).createProduct({ name: 'X', status: 'active' }),
       ).rejects.toThrow(TinyApiError)
     })
 
-    it('maps active=false to situacao I', async () => {
+    it('maps status="inactive" to situacao "I"', async () => {
       const executor = makeExecutor(null)
       vi.mocked(executor.execute)
         .mockResolvedValueOnce(createResponse(1))
         .mockResolvedValueOnce(getProductResponse())
 
-      await new ProductsEndpoint(executor).createProduct({ name: 'X', active: false })
+      await new ProductsEndpoint(executor).createProduct({ name: 'X', status: 'inactive' })
 
       const body = vi.mocked(executor.execute).mock.calls[0][0].body as { produto: { situacao: string } }
       expect(body.produto.situacao).toBe('I')
@@ -235,11 +235,53 @@ describe('ProductsEndpoint', () => {
         .mockResolvedValueOnce(createResponse(1))
         .mockResolvedValueOnce(getProductResponse())
 
-      await new ProductsEndpoint(executor).createProduct({ name: 'X', active: true })
+      await new ProductsEndpoint(executor).createProduct({ name: 'X', status: 'active' })
 
       const body = vi.mocked(executor.execute).mock.calls[0][0].body as { produto: Record<string, unknown> }
       expect(body.produto.preco).toBeUndefined()
       expect(body.produto.peso_bruto).toBeUndefined()
+    })
+
+    it('maps new fields into the body correctly', async () => {
+      const executor = makeExecutor(null)
+      vi.mocked(executor.execute)
+        .mockResolvedValueOnce(createResponse(1))
+        .mockResolvedValueOnce(getProductResponse())
+
+      await new ProductsEndpoint(executor).createProduct({
+        name: 'X',
+        status: 'active',
+        salePrice: 49.9,
+        ncm: '6109.10.00',
+        brand: 'Nike',
+        packagingType: 'box',
+        packagingHeight: 10,
+        packagingWidth: 20,
+        packagingLength: 30,
+        minStock: 5,
+        maxStock: 100,
+        madeToOrder: true,
+        preparationDays: 2,
+        seoTitle: 'SEO Title',
+        netWeight: 0.2,
+        grossWeight: 0.3,
+      })
+
+      const body = vi.mocked(executor.execute).mock.calls[0][0].body as { produto: Record<string, unknown> }
+      expect(body.produto.preco_promocional).toBe('49.9')
+      expect(body.produto.ncm).toBe('6109.10.00')
+      expect(body.produto.marca).toBe('Nike')
+      expect(body.produto.tipoEmbalagem).toBe('2')
+      expect(body.produto.alturaEmbalagem).toBe('10')
+      expect(body.produto.larguraEmbalagem).toBe('20')
+      expect(body.produto.comprimentoEmbalagem).toBe('30')
+      expect(body.produto.estoque_minimo).toBe('5')
+      expect(body.produto.estoque_maximo).toBe('100')
+      expect(body.produto.sob_encomenda).toBe('S')
+      expect(body.produto.dias_preparacao).toBe('2')
+      expect(body.produto.seo_title).toBe('SEO Title')
+      expect(body.produto.peso_liquido).toBe('0.2')
+      expect(body.produto.peso_bruto).toBe('0.3')
     })
   })
 
@@ -287,9 +329,8 @@ describe('ProductsEndpoint', () => {
     })
 
     it('throws TinyApiError when update status is not OK', async () => {
-      const executor = makeExecutor(statusResponse('Erro'))
       await expect(
-        new ProductsEndpoint(executor).updateProduct('5', { name: 'X' }),
+        new ProductsEndpoint(makeExecutor(statusResponse('Erro'))).updateProduct('5', { name: 'X' }),
       ).rejects.toThrow(TinyApiError)
     })
   })
@@ -320,16 +361,17 @@ describe('ProductsEndpoint', () => {
     })
 
     it('returns the productId as string', async () => {
-      const executor = makeExecutor({
-        retorno: { status: 'OK', produto: { id: 99, saldo: [] } },
-      })
+      const executor = makeExecutor({ retorno: { status: 'OK', produto: { id: 99, saldo: [] } } })
       const result = await new ProductsEndpoint(executor).getStock('99')
       expect(result.productId).toBe('99')
     })
 
     it('throws TinyApiError when status is not OK', async () => {
-      const executor = makeExecutor({ retorno: { status: 'Erro', produto: { id: 1, saldo: [] } } })
-      await expect(new ProductsEndpoint(executor).getStock('1')).rejects.toThrow(TinyApiError)
+      await expect(
+        new ProductsEndpoint(
+          makeExecutor({ retorno: { status: 'Erro', produto: { id: 1, saldo: [] } } }),
+        ).getStock('1'),
+      ).rejects.toThrow(TinyApiError)
     })
   })
 
@@ -351,8 +393,11 @@ describe('ProductsEndpoint', () => {
     })
 
     it('throws TinyApiError when status is not OK', async () => {
-      const executor = makeExecutor({ retorno: { status: 'Erro', produto: { estrutura: [] } } })
-      await expect(new ProductsEndpoint(executor).getStructure('7')).rejects.toThrow(TinyApiError)
+      await expect(
+        new ProductsEndpoint(
+          makeExecutor({ retorno: { status: 'Erro', produto: { estrutura: [] } } }),
+        ).getStructure('7'),
+      ).rejects.toThrow(TinyApiError)
     })
   })
 
@@ -378,15 +423,15 @@ describe('ProductsEndpoint', () => {
     })
 
     it('returns empty array when Tiny returns no produtos', async () => {
-      const executor = makeExecutor(searchResponse({ produtos: undefined }))
-      const result = await new ProductsEndpoint(executor).getChangedProducts('2024-01-01')
+      const result = await new ProductsEndpoint(
+        makeExecutor(searchResponse({ produtos: undefined })),
+      ).getChangedProducts('2024-01-01')
       expect(result).toEqual([])
     })
 
     it('throws TinyApiError when status is not OK', async () => {
-      const executor = makeExecutor(searchResponse({ status: 'Erro' }))
       await expect(
-        new ProductsEndpoint(executor).getChangedProducts('2024-01-01'),
+        new ProductsEndpoint(makeExecutor(searchResponse({ status: 'Erro' }))).getChangedProducts('2024-01-01'),
       ).rejects.toThrow(TinyApiError)
     })
   })
@@ -427,9 +472,8 @@ describe('ProductsEndpoint', () => {
     })
 
     it('throws TinyApiError when status is not OK', async () => {
-      const executor = makeExecutor({ retorno: { status: 'Erro' } })
       await expect(
-        new ProductsEndpoint(executor).getStockUpdates('2024-01-01'),
+        new ProductsEndpoint(makeExecutor({ retorno: { status: 'Erro' } })).getStockUpdates('2024-01-01'),
       ).rejects.toThrow(TinyApiError)
     })
   })
@@ -503,8 +547,7 @@ describe('ProductsEndpoint', () => {
     ]
 
     it.each(methods)('%s propagates errors thrown by executor', async (_name, call) => {
-      const executor = makeFailing(new TinyApiError('HTTP 500', 'HTTP_500'))
-      await expect(call(new ProductsEndpoint(executor))).rejects.toThrow(TinyApiError)
+      await expect(call(new ProductsEndpoint(makeFailing(new TinyApiError('HTTP 500', 'HTTP_500'))))).rejects.toThrow(TinyApiError)
     })
   })
 })
