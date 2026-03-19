@@ -404,7 +404,7 @@ describe('mapProduct', () => {
 
   // ── variations ────────────────────────────────────────────────────────────
 
-  it('maps variacoes to variations array', () => {
+  it('maps variacoes array (multiple variations) correctly', () => {
     const raw = makeApiProduct({
       variacoes: [
         {
@@ -415,7 +415,34 @@ describe('mapProduct', () => {
             grade: { Cor: 'Azul', Tamanho: 'M' },
           },
         },
+        {
+          variacao: {
+            id: 11,
+            codigo: 'VAR-02',
+            preco: '99.90',
+            grade: { Cor: 'Preto', Tamanho: 'G' },
+          },
+        },
       ],
+    })
+    const result = mapProduct(raw)
+    expect(result.variations).toHaveLength(2)
+    expect(result.variations![0]).toMatchObject({ id: '10', sku: 'VAR-01', price: 99.9 })
+    expect(result.variations![1]).toMatchObject({ id: '11', sku: 'VAR-02', price: 99.9 })
+  })
+
+  // ── Tiny API quirk: single-item list returned as object, not array ──────
+
+  it('maps variacoes as a plain object (single variation) instead of array', () => {
+    const raw = makeApiProduct({
+      variacoes: {
+        variacao: {
+          id: 10,
+          codigo: 'VAR-01',
+          preco: '99.90',
+          grade: { Cor: 'Azul', Tamanho: 'M' },
+        },
+      },
     })
     const result = mapProduct(raw)
     expect(result.variations).toHaveLength(1)
@@ -427,7 +454,11 @@ describe('mapProduct', () => {
     })
   })
 
-  it('maps variation mappings', () => {
+  it('maps variacoes="" (empty string) to variations=undefined', () => {
+    expect(mapProduct(makeApiProduct({ variacoes: '' })).variations).toBeUndefined()
+  })
+
+  it('maps variation mappings (array)', () => {
     const raw = makeApiProduct({
       variacoes: [
         {
@@ -463,19 +494,50 @@ describe('mapProduct', () => {
     })
   })
 
+  it('maps variation mappings as a plain object (single mapping)', () => {
+    const raw = makeApiProduct({
+      variacoes: [
+        {
+          variacao: {
+            id: 10,
+            grade: {},
+            mapeamentos: {
+              mapeamento: {
+                idEcommerce: 1,
+                skuMapeamento: 'SKU-MAP',
+                skuMapeamentoPai: 'SKU-PAI',
+                idMapeamentoPai: 5,
+                idMapeamento: 99,
+              },
+            },
+          },
+        },
+      ],
+    })
+    const mapping = mapProduct(raw).variations![0].mappings![0]
+    expect(mapping).toMatchObject({ ecommerceId: 1, sku: 'SKU-MAP', mappingId: 99 })
+  })
+
   it('returns variations=undefined when variacoes is absent', () => {
     expect(mapProduct(makeApiProduct({ variacoes: undefined })).variations).toBeUndefined()
   })
 
   // ── kit items ─────────────────────────────────────────────────────────────
 
-  it('maps kit items', () => {
+  it('maps kit items (array)', () => {
     const raw = makeApiProduct({
       kit: [{ item: { id_produto: 7, quantidade: 2 } }],
     })
     const result = mapProduct(raw)
     expect(result.kitItems).toHaveLength(1)
     expect(result.kitItems![0]).toEqual({ productId: '7', quantity: 2 })
+  })
+
+  it('maps kit as a plain object (single item)', () => {
+    const raw = makeApiProduct({ kit: { item: { id_produto: 7, quantidade: 3 } } })
+    const result = mapProduct(raw)
+    expect(result.kitItems).toHaveLength(1)
+    expect(result.kitItems![0]).toEqual({ productId: '7', quantity: 3 })
   })
 
   it('returns kitItems=undefined when kit is absent', () => {
@@ -510,16 +572,36 @@ describe('mapProduct', () => {
     expect(mapProduct(makeApiProduct({ garantia: '12 meses' })).warranty).toBe('12 meses')
   })
 
-  it('maps anexos to attachments as URL strings', () => {
+  it('maps anexos to attachments as URL strings (array)', () => {
     const raw = makeApiProduct({ anexos: [{ anexo: 'https://cdn.example.com/file.pdf' }] })
     expect(mapProduct(raw).attachments).toEqual(['https://cdn.example.com/file.pdf'])
   })
 
-  it('maps imagens_externas to externalImages', () => {
+  it('maps anexos as a plain object (single attachment)', () => {
+    const raw = makeApiProduct({ anexos: { anexo: 'https://cdn.example.com/file.pdf' } })
+    expect(mapProduct(raw).attachments).toEqual(['https://cdn.example.com/file.pdf'])
+  })
+
+  it('maps anexos=[] to attachments=undefined', () => {
+    expect(mapProduct(makeApiProduct({ anexos: [] })).attachments).toBeUndefined()
+  })
+
+  it('maps imagens_externas to externalImages (array)', () => {
     const raw = makeApiProduct({
       imagens_externas: [{ imagem_externa: { url: 'https://cdn.example.com/img.jpg' } }],
     })
     expect(mapProduct(raw).externalImages).toEqual(['https://cdn.example.com/img.jpg'])
+  })
+
+  it('maps imagens_externas as a plain object (single image)', () => {
+    const raw = makeApiProduct({
+      imagens_externas: { imagem_externa: { url: 'https://cdn.example.com/img.jpg' } },
+    })
+    expect(mapProduct(raw).externalImages).toEqual(['https://cdn.example.com/img.jpg'])
+  })
+
+  it('maps imagens_externas=[] to externalImages=undefined', () => {
+    expect(mapProduct(makeApiProduct({ imagens_externas: [] })).externalImages).toBeUndefined()
   })
 
   // ── SEO ───────────────────────────────────────────────────────────────────
@@ -546,7 +628,7 @@ describe('mapProduct', () => {
 
   // ── e-commerce mappings ───────────────────────────────────────────────────
 
-  it('maps mapeamentos to mappings', () => {
+  it('maps mapeamentos to mappings (array)', () => {
     const raw = makeApiProduct({
       mapeamentos: [
         {
@@ -568,6 +650,20 @@ describe('mapProduct', () => {
       price: 59.9,
       salePrice: 49.9,
     })
+  })
+
+  it('maps mapeamentos as a plain object (single mapping)', () => {
+    const raw = makeApiProduct({
+      mapeamentos: {
+        mapeamento: {
+          idEcommerce: 3,
+          skuMapeamento: 'EC-SKU',
+          idMapeamento: 55,
+        },
+      },
+    })
+    const mapping = mapProduct(raw).mappings![0]
+    expect(mapping).toMatchObject({ ecommerceId: 3, sku: 'EC-SKU', mappingId: 55 })
   })
 
   it('returns mappings=undefined when mapeamentos is absent', () => {
@@ -600,6 +696,98 @@ describe('mapProduct', () => {
     expect(result.description).toBe('Camiseta polo masculina')
   })
 })
+
+  // ── Real-world API response mock ──────────────────────────────────────────
+
+  it('maps a real getProduct API response correctly', () => {
+    // Exact shape returned by Tiny's produto.obter endpoint
+    const apiProduct: ApiProduct = {
+      id: '971400284',
+      nome: 'Teste',
+      codigo: 'SKU-TEST',
+      unidade: 'Un',
+      preco: 0.01,           // numeric, not string
+      preco_promocional: 0,  // numeric zero → undefined
+      ncm: '1001.10.10',
+      origem: '0',
+      gtin: '',
+      gtin_embalagem: '',
+      localizacao: '',
+      peso_liquido: 1,       // numeric
+      peso_bruto: 1,         // numeric
+      estoque_minimo: 0,     // numeric zero
+      estoque_maximo: 10,    // numeric
+      id_fornecedor: 0,      // zero → supplierId=undefined
+      codigo_fornecedor: '',
+      codigo_pelo_fornecedor: '',
+      unidade_por_caixa: '',
+      preco_custo: 0,
+      preco_custo_medio: 0,
+      situacao: 'A',
+      tipo: 'P',
+      classe_ipi: '',
+      valor_ipi_fixo: '0.0000',
+      cod_lista_servicos: null,
+      descricao_complementar: '',
+      garantia: '',
+      cest: '01.003.00',
+      obs: '',
+      tipoVariacao: 'N',
+      variacoes: '',          // empty string → variations=undefined
+      idProdutoPai: '0',      // "0" → parentProductId=undefined
+      sob_encomenda: 'N',
+      dias_preparacao: '0',
+      marca: '',
+      tipoEmbalagem: '2',
+      alturaEmbalagem: '1.0',
+      comprimentoEmbalagem: '1.0',
+      larguraEmbalagem: '1.0',
+      diametroEmbalagem: '0.0',
+      categoria: '',
+      anexos: [],             // empty array → attachments=undefined
+      imagens_externas: [],   // empty array → externalImages=undefined
+      classe_produto: 'S',
+      seo_title: '',
+      seo_keywords: '',
+      link_video: '',
+      seo_description: '',
+      slug: '',
+    }
+
+    const result = mapProduct(apiProduct)
+
+    expect(result.id).toBe('971400284')
+    expect(result.name).toBe('Teste')
+    expect(result.sku).toBe('SKU-TEST')
+    expect(result.status).toBe('active')
+    expect(result.type).toBe('product')
+    expect(result.price).toBe(0.01)
+    expect(result.salePrice).toBe(0)            // preco_promocional=0 → 0
+    expect(result.ncm).toBe('1001.10.10')
+    expect(result.origin).toBe('0')
+    expect(result.gtin).toBeUndefined()        // empty string
+    expect(result.netWeight).toBe(1)
+    expect(result.grossWeight).toBe(1)
+    expect(result.minStock).toBe(0)
+    expect(result.maxStock).toBe(10)
+    expect(result.supplierId).toBeUndefined()  // id_fornecedor=0
+    expect(result.cest).toBe('01.003.00')
+    expect(result.variationType).toBe('normal')
+    expect(result.variations).toBeUndefined()  // variacoes=""
+    expect(result.parentProductId).toBeUndefined() // idProdutoPai="0"
+    expect(result.madeToOrder).toBe(false)
+    expect(result.packagingType).toBe('box')   // tipoEmbalagem=2
+    expect(result.packagingHeight).toBe(1)
+    expect(result.packagingWidth).toBe(1)
+    expect(result.packagingLength).toBe(1)
+    expect(result.packagingDiameter).toBe(0)
+    expect(result.class).toBe('simple')
+    expect(result.attachments).toBeUndefined() // anexos=[]
+    expect(result.externalImages).toBeUndefined() // imagens_externas=[]
+    expect(result.description).toBeUndefined() // descricao_complementar=""
+    expect(result.notes).toBeUndefined()       // obs=""
+    expect(result.slug).toBeUndefined()        // slug=""
+  })
 
 describe('mapProducts', () => {
   it('maps an array of product wrappers', () => {

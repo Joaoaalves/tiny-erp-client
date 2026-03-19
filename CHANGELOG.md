@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.2] - 2026-03-19
+
+### Fixed
+- `variacoes`, `kit`, `anexos`, `imagens_externas`, `mapeamentos`: Tiny API returns a plain object `{ variacao: {...} }` instead of an array when there is only one item — all list fields now normalise both shapes via `toArray()`
+- Empty arrays (`anexos: []`, `imagens_externas: []`) now map to `undefined` for consistency with absent fields
+- `id_fornecedor: 0` now maps to `supplierId: undefined` (zero means no supplier in Tiny)
+- `idProdutoPai: "0"` now maps to `parentProductId: undefined` (zero means no parent)
+- `preco`, `peso_liquido`, `peso_bruto`, `estoque_minimo/maximo`, `preco_custo/medio`, `valor_ipi_fixo`: accepted as `number` in addition to `string` — Tiny returns bare numbers in some responses
+- `cod_lista_servicos: null` accepted (Tiny returns `null` for absent service list code)
+
+---
+
 ## [0.2.1] - 2026-03-19
 
 ### Fixed
@@ -135,6 +147,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[0.2.2]: https://github.com/your-org/tiny-erp-client/releases/tag/v0.2.2
 [0.2.1]: https://github.com/your-org/tiny-erp-client/releases/tag/v0.2.1
 [0.2.0]: https://github.com/your-org/tiny-erp-client/releases/tag/v0.2.0
 [0.1.0]: https://github.com/your-org/tiny-erp-client/releases/tag/v0.1.0

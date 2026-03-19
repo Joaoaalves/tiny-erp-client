@@ -28,7 +28,7 @@ export interface ApiVariation {
   codigo?: string
   preco?: string
   grade?: Record<string, string>
-  mapeamentos?: Array<{ mapeamento: ApiVariationMapping }>
+  mapeamentos?: Array<{ mapeamento: ApiVariationMapping }> | { mapeamento: ApiVariationMapping } | ''
 }
 
 export interface ApiProductMapping {
@@ -50,19 +50,19 @@ export interface ApiProduct {
   codigo?: string
   data_criacao?: string
   unidade?: string
-  preco?: string
-  preco_promocional?: string
-  preco_custo?: string
-  preco_custo_medio?: string
+  preco?: string | number
+  preco_promocional?: string | number
+  preco_custo?: string | number
+  preco_custo_medio?: string | number
   ncm?: string
   origem?: string
   gtin?: string
   gtin_embalagem?: string
   localizacao?: string
-  peso_liquido?: string
-  peso_bruto?: string
-  estoque_minimo?: string
-  estoque_maximo?: string
+  peso_liquido?: string | number
+  peso_bruto?: string | number
+  estoque_minimo?: string | number
+  estoque_maximo?: string | number
   id_fornecedor?: number | string
   codigo_fornecedor?: string
   codigo_pelo_fornecedor?: string
@@ -70,8 +70,8 @@ export interface ApiProduct {
   situacao?: string
   tipo?: string
   classe_ipi?: string
-  valor_ipi_fixo?: string
-  cod_lista_servicos?: string
+  valor_ipi_fixo?: string | number
+  cod_lista_servicos?: string | null
   descricao_complementar?: string
   /** Legacy field returned by search endpoints */
   descricao?: string
@@ -79,7 +79,7 @@ export interface ApiProduct {
   garantia?: string
   cest?: string
   tipoVariacao?: string
-  variacoes?: Array<{ variacao: ApiVariation }>
+  variacoes?: Array<{ variacao: ApiVariation }> | { variacao: ApiVariation } | ''
   idProdutoPai?: number | string
   sob_encomenda?: string
   dias_preparacao?: number | string
@@ -91,16 +91,16 @@ export interface ApiProduct {
   comprimentoEmbalagem?: string
   diametroEmbalagem?: string
   categoria?: string
-  anexos?: Array<{ anexo: string }>
-  imagens_externas?: Array<{ imagem_externa: { url: string } }>
+  anexos?: Array<{ anexo: string }> | { anexo: string } | ''
+  imagens_externas?: Array<{ imagem_externa: { url: string } }> | { imagem_externa: { url: string } } | ''
   classe_produto?: string
-  kit?: Array<{ item: ApiKitItem }>
+  kit?: Array<{ item: ApiKitItem }> | { item: ApiKitItem } | ''
   seo_title?: string
   seo_keywords?: string
   link_video?: string
   seo_description?: string
   slug?: string
-  mapeamentos?: Array<{ mapeamento: ApiProductMapping }>
+  mapeamentos?: Array<{ mapeamento: ApiProductMapping }> | { mapeamento: ApiProductMapping } | ''
 }
 
 export interface ApiProductWrapper {
@@ -108,6 +108,16 @@ export interface ApiProductWrapper {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Tiny API returns single-item lists as a plain object instead of an array.
+ * This normalises both cases to an array (or undefined when absent/empty).
+ */
+function toArray<T>(value: T[] | T | '' | undefined): T[] | undefined {
+  if (value === undefined || value === '' || value === null) return undefined
+  if (Array.isArray(value)) return value.length > 0 ? value : undefined
+  return [value]
+}
 
 function parseNumericField(value: string | number | undefined, field: string): number | undefined {
   if (value === undefined || value === '') return undefined
@@ -178,7 +188,7 @@ function mapVariation(raw: ApiVariation): ProductVariation {
     sku: presence(raw.codigo),
     price: parseNumericField(raw.preco, 'variacao.preco'),
     attributes: raw.grade ?? {},
-    mappings: raw.mapeamentos?.map(m => mapVariationMapping(m.mapeamento)),
+    mappings: toArray(raw.mapeamentos)?.map(m => mapVariationMapping(m.mapeamento)),
   }
 }
 
@@ -226,7 +236,7 @@ export function mapProduct(raw: ApiProduct): Product {
     gtinPackaging: presence(raw.gtin_embalagem),
     ipiClass: presence(raw.classe_ipi),
     fixedIpiValue: parseNumericField(raw.valor_ipi_fixo, 'valor_ipi_fixo'),
-    serviceListCode: presence(raw.cod_lista_servicos),
+    serviceListCode: presence(raw.cod_lista_servicos ?? undefined),
     cest: presence(raw.cest),
 
     // Physical
@@ -247,7 +257,7 @@ export function mapProduct(raw: ApiProduct): Product {
     maxStock: parseNumericField(raw.estoque_maximo, 'estoque_maximo'),
 
     // Supplier
-    supplierId: raw.id_fornecedor !== undefined ? String(raw.id_fornecedor) : undefined,
+    supplierId: raw.id_fornecedor !== undefined && Number(raw.id_fornecedor) !== 0 ? String(raw.id_fornecedor) : undefined,
     supplierCode: presence(raw.codigo_fornecedor),
     supplierProductCode: presence(raw.codigo_pelo_fornecedor),
 
@@ -259,12 +269,12 @@ export function mapProduct(raw: ApiProduct): Product {
 
     // Variations
     variationType: mapVariationType(raw.tipoVariacao),
-    parentProductId: raw.idProdutoPai !== undefined ? String(raw.idProdutoPai) : undefined,
+    parentProductId: raw.idProdutoPai !== undefined && String(raw.idProdutoPai) !== '0' ? String(raw.idProdutoPai) : undefined,
     attributes: raw.grade,
-    variations: raw.variacoes?.map(v => mapVariation(v.variacao)),
+    variations: toArray(raw.variacoes)?.map(v => mapVariation(v.variacao)),
 
     // Kit
-    kitItems: raw.kit?.map(k => mapKitItem(k.item)),
+    kitItems: toArray(raw.kit)?.map(k => mapKitItem(k.item)),
 
     // Fulfillment
     madeToOrder: raw.sob_encomenda === 'S' ? true : raw.sob_encomenda === 'N' ? false : undefined,
@@ -275,8 +285,8 @@ export function mapProduct(raw: ApiProduct): Product {
     description: presence(raw.descricao_complementar) ?? presence(raw.descricao),
     notes: presence(raw.obs),
     warranty: presence(raw.garantia),
-    attachments: raw.anexos?.map(a => a.anexo),
-    externalImages: raw.imagens_externas?.map(i => i.imagem_externa.url),
+    attachments: toArray(raw.anexos)?.map(a => a.anexo),
+    externalImages: toArray(raw.imagens_externas)?.map(i => i.imagem_externa.url),
 
     // SEO / e-commerce
     seoTitle: presence(raw.seo_title),
@@ -286,7 +296,7 @@ export function mapProduct(raw: ApiProduct): Product {
     slug: presence(raw.slug),
 
     // E-commerce mappings
-    mappings: raw.mapeamentos?.map(m => mapProductMapping(m.mapeamento)),
+    mappings: toArray(raw.mapeamentos)?.map(m => mapProductMapping(m.mapeamento)),
   }
 }
 
