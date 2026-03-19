@@ -10,3 +10,5 @@ export interface OrdersModule {
   createOrder(input: Omit<Order, 'id' | 'number' | 'createdAt' | 'updatedAt'>): Promise<Order>
   updateOrder(id: string, input: Partial<Omit<Order, 'id' | 'number' | 'createdAt'>>): Promise<Order>
 }
+
+export { OrdersEndpoint } from './OrdersEndpoint'

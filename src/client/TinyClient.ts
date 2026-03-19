@@ -1,13 +1,13 @@
 import type { TinyClientConfig } from '../types/client'
-import type { OrdersModule } from '../endpoints/orders'
 import { ProductsEndpoint } from '../endpoints/products'
+import { OrdersEndpoint } from '../endpoints/orders'
 import { FetchHttpClient } from '../core/FetchHttpClient'
 import { createRateLimiter } from '../rate-limit/createRateLimiter'
 import { RequestExecutor } from './RequestExecutor'
 
 export class TinyClient {
   readonly products: ProductsEndpoint
-  readonly orders: OrdersModule
+  readonly orders: OrdersEndpoint
 
   /**
    * Internal request executor shared by all endpoint modules.
@@ -22,7 +22,6 @@ export class TinyClient {
     this.executor = new RequestExecutor(config.token, httpClient, rateLimiter)
 
     this.products = new ProductsEndpoint(this.executor)
-    // Orders module connected in feature/orders-endpoint
-    this.orders = {} as OrdersModule
+    this.orders = new OrdersEndpoint(this.executor)
   }
 }

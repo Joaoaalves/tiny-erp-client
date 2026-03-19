@@ -35,6 +35,6 @@ export interface SearchOrdersInput {
 
 export interface SearchOrdersOutput {
   orders: Order[]
-  total: number
   page: number
+  numberOfPages: number
 }
