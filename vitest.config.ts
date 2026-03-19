@@ -14,7 +14,13 @@ export default defineConfig({
         lines: 100,
       },
       include: ['src/**/*.ts'],
-      exclude: ['src/index.ts'],
+      exclude: [
+        // barrel/re-export files — no logic to cover
+        'src/index.ts',
+        'src/core/index.ts',
+        // shell — implementation deferred to feature/client-core
+        'src/client/TinyClient.ts',
+      ],
     },
   },
 })
