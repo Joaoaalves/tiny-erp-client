@@ -17,10 +17,12 @@ export default defineConfig({
       exclude: [
         // barrel/re-export files — no logic to cover
         'src/index.ts',
+        'src/client/index.ts',
         'src/core/index.ts',
         'src/rate-limit/index.ts',
-        // shell — implementation deferred to feature/client-core
-        'src/client/TinyClient.ts',
+        // endpoint index barrels — implementations deferred to feature/products and feature/orders
+        'src/endpoints/products/index.ts',
+        'src/endpoints/orders/index.ts',
       ],
     },
   },
