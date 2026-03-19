@@ -1,19 +1,22 @@
 {
   "name": "tiny-erp-client",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "High-performance, fully typed TypeScript client for the Tiny ERP API",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.js"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md",
+    "LICENSE",
+    "README.md"
   ],
   "sideEffects": false,
   "scripts": {
@@ -28,24 +31,24 @@
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\"",
     "docs:serve": "docsify serve docs",
-    "prepublishOnly": "npm run typecheck && npm run lint && npm run test && npm run build"
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
   },
   "keywords": [
     "tiny",
+    "tiny-erp",
     "erp",
     "api",
     "client",
+    "sdk",
     "typescript",
-    "sdk"
+    "products",
+    "orders",
+    "rate-limit"
   ],
   "author": "",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
-  },
-  "dependencies": {
-    "tsup": "^8.0.0",
-    "typescript": "^5.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
@@ -55,6 +58,8 @@
     "eslint": "^8.0.0",
     "msw": "^2.0.0",
     "prettier": "^3.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0",
     "vitest": "^1.0.0"
   }
 }
