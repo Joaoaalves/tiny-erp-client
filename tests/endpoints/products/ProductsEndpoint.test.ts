@@ -241,8 +241,10 @@ describe('ProductsEndpoint', () => {
         expect.objectContaining({
           path: '/produto.incluir',
           method: 'POST',
-          body: expect.objectContaining({
-            produto: expect.objectContaining({ nome: 'Camiseta Polo', situacao: 'A' }),
+          queryBody: expect.objectContaining({
+            produto: expect.objectContaining({
+              produto: expect.objectContaining({ nome: 'Camiseta Polo', situacao: 'A' }),
+            }),
           }),
         }),
       )
@@ -285,8 +287,8 @@ describe('ProductsEndpoint', () => {
 
       await new ProductsEndpoint(executor).createProduct({ name: 'X', status: 'inactive' })
 
-      const body = vi.mocked(executor.execute).mock.calls[0][0].body as { produto: { situacao: string } }
-      expect(body.produto.situacao).toBe('I')
+      const qb = vi.mocked(executor.execute).mock.calls[0][0].queryBody as { produto: { produto: { situacao: string } } }
+      expect(qb.produto.produto.situacao).toBe('I')
     })
 
     it('omits undefined optional fields from the body', async () => {
@@ -297,9 +299,9 @@ describe('ProductsEndpoint', () => {
 
       await new ProductsEndpoint(executor).createProduct({ name: 'X', status: 'active' })
 
-      const body = vi.mocked(executor.execute).mock.calls[0][0].body as { produto: Record<string, unknown> }
-      expect(body.produto.preco).toBeUndefined()
-      expect(body.produto.peso_bruto).toBeUndefined()
+      const qb = vi.mocked(executor.execute).mock.calls[0][0].queryBody as { produto: { produto: Record<string, unknown> } }
+      expect(qb.produto.produto.preco).toBeUndefined()
+      expect(qb.produto.produto.peso_bruto).toBeUndefined()
     })
 
     it('maps new fields into the body correctly', async () => {
@@ -327,21 +329,21 @@ describe('ProductsEndpoint', () => {
         grossWeight: 0.3,
       })
 
-      const body = vi.mocked(executor.execute).mock.calls[0][0].body as { produto: Record<string, unknown> }
-      expect(body.produto.preco_promocional).toBe('49.9')
-      expect(body.produto.ncm).toBe('6109.10.00')
-      expect(body.produto.marca).toBe('Nike')
-      expect(body.produto.tipoEmbalagem).toBe('2')
-      expect(body.produto.alturaEmbalagem).toBe('10')
-      expect(body.produto.larguraEmbalagem).toBe('20')
-      expect(body.produto.comprimentoEmbalagem).toBe('30')
-      expect(body.produto.estoque_minimo).toBe('5')
-      expect(body.produto.estoque_maximo).toBe('100')
-      expect(body.produto.sob_encomenda).toBe('S')
-      expect(body.produto.dias_preparacao).toBe('2')
-      expect(body.produto.seo_title).toBe('SEO Title')
-      expect(body.produto.peso_liquido).toBe('0.2')
-      expect(body.produto.peso_bruto).toBe('0.3')
+      const qb = vi.mocked(executor.execute).mock.calls[0][0].queryBody as { produto: { produto: Record<string, unknown> } }
+      expect(qb.produto.produto.preco_promocional).toBe('49.9')
+      expect(qb.produto.produto.ncm).toBe('6109.10.00')
+      expect(qb.produto.produto.marca).toBe('Nike')
+      expect(qb.produto.produto.tipoEmbalagem).toBe('2')
+      expect(qb.produto.produto.alturaEmbalagem).toBe('10')
+      expect(qb.produto.produto.larguraEmbalagem).toBe('20')
+      expect(qb.produto.produto.comprimentoEmbalagem).toBe('30')
+      expect(qb.produto.produto.estoque_minimo).toBe('5')
+      expect(qb.produto.produto.estoque_maximo).toBe('100')
+      expect(qb.produto.produto.sob_encomenda).toBe('S')
+      expect(qb.produto.produto.dias_preparacao).toBe('2')
+      expect(qb.produto.produto.seo_title).toBe('SEO Title')
+      expect(qb.produto.produto.peso_liquido).toBe('0.2')
+      expect(qb.produto.produto.peso_bruto).toBe('0.3')
     })
   })
 
@@ -360,8 +362,14 @@ describe('ProductsEndpoint', () => {
         expect.objectContaining({
           path: '/produto.alterar',
           method: 'POST',
-          body: expect.objectContaining({
-            produto: expect.objectContaining({ id: '5', nome: 'Novo Nome', preco: '79.9' }),
+          queryBody: expect.objectContaining({
+            produto: expect.objectContaining({
+              produtos: expect.arrayContaining([
+                expect.objectContaining({
+                  produto: expect.objectContaining({ id: '5', nome: 'Novo Nome', preco: '79.9' }),
+                }),
+              ]),
+            }),
           }),
         }),
       )
@@ -693,40 +701,40 @@ describe('ProductsEndpoint', () => {
       )
     })
 
-    it('sends idProduto and quantidade in estoque body', async () => {
+    it('sends idProduto and quantidade in estoque queryBody', async () => {
       const executor = makeExecutor(updateStockResponse())
       await new ProductsEndpoint(executor).updateStock({ productId: '3', quantity: 25 })
-      const body = vi.mocked(executor.execute).mock.calls[0][0].body as { estoque: Record<string, unknown> }
-      expect(body.estoque.idProduto).toBe('3')
-      expect(body.estoque.quantidade).toBe(25)
+      const qb = vi.mocked(executor.execute).mock.calls[0][0].queryBody as { estoque: { estoque: Record<string, unknown> } }
+      expect(qb.estoque.estoque.idProduto).toBe('3')
+      expect(qb.estoque.estoque.quantidade).toBe(25)
     })
 
     it('sends tipo "B" when movementType is "balance"', async () => {
       const executor = makeExecutor(updateStockResponse())
       await new ProductsEndpoint(executor).updateStock({ productId: '1', quantity: 10, movementType: 'balance' })
-      const body = vi.mocked(executor.execute).mock.calls[0][0].body as { estoque: Record<string, unknown> }
-      expect(body.estoque.tipo).toBe('B')
+      const qb = vi.mocked(executor.execute).mock.calls[0][0].queryBody as { estoque: { estoque: Record<string, unknown> } }
+      expect(qb.estoque.estoque.tipo).toBe('B')
     })
 
     it('sends tipo "E" when movementType is "entry"', async () => {
       const executor = makeExecutor(updateStockResponse())
       await new ProductsEndpoint(executor).updateStock({ productId: '1', quantity: 5, movementType: 'entry' })
-      const body = vi.mocked(executor.execute).mock.calls[0][0].body as { estoque: Record<string, unknown> }
-      expect(body.estoque.tipo).toBe('E')
+      const qb = vi.mocked(executor.execute).mock.calls[0][0].queryBody as { estoque: { estoque: Record<string, unknown> } }
+      expect(qb.estoque.estoque.tipo).toBe('E')
     })
 
     it('sends tipo "S" when movementType is "exit"', async () => {
       const executor = makeExecutor(updateStockResponse())
       await new ProductsEndpoint(executor).updateStock({ productId: '1', quantity: 3, movementType: 'exit' })
-      const body = vi.mocked(executor.execute).mock.calls[0][0].body as { estoque: Record<string, unknown> }
-      expect(body.estoque.tipo).toBe('S')
+      const qb = vi.mocked(executor.execute).mock.calls[0][0].queryBody as { estoque: { estoque: Record<string, unknown> } }
+      expect(qb.estoque.estoque.tipo).toBe('S')
     })
 
     it('omits tipo when movementType is not provided', async () => {
       const executor = makeExecutor(updateStockResponse())
       await new ProductsEndpoint(executor).updateStock({ productId: '1', quantity: 10 })
-      const body = vi.mocked(executor.execute).mock.calls[0][0].body as { estoque: Record<string, unknown> }
-      expect(body.estoque.tipo).toBeUndefined()
+      const qb = vi.mocked(executor.execute).mock.calls[0][0].queryBody as { estoque: { estoque: Record<string, unknown> } }
+      expect(qb.estoque.estoque.tipo).toBeUndefined()
     })
 
     it('sends optional fields when provided', async () => {
@@ -739,11 +747,11 @@ describe('ProductsEndpoint', () => {
         notes: 'Reposição',
         warehouse: 'Depósito Principal',
       })
-      const body = vi.mocked(executor.execute).mock.calls[0][0].body as { estoque: Record<string, unknown> }
-      expect(body.estoque.data).toBe('2024-03-15')
-      expect(body.estoque.precoUnitario).toBe(59.9)
-      expect(body.estoque.observacoes).toBe('Reposição')
-      expect(body.estoque.deposito).toBe('Depósito Principal')
+      const qb = vi.mocked(executor.execute).mock.calls[0][0].queryBody as { estoque: { estoque: Record<string, unknown> } }
+      expect(qb.estoque.estoque.data).toBe('2024-03-15')
+      expect(qb.estoque.estoque.precoUnitario).toBe(59.9)
+      expect(qb.estoque.estoque.observacoes).toBe('Reposição')
+      expect(qb.estoque.estoque.deposito).toBe('Depósito Principal')
     })
 
     it('returns mapped UpdateStockResult', async () => {
@@ -777,7 +785,7 @@ describe('ProductsEndpoint', () => {
         expect.objectContaining({
           path: '/produto.atualizar.precos',
           method: 'POST',
-          body: { produto: { id: '8', preco: '99.9' } },
+          queryBody: { produto: { produto: { id: '8', preco: '99.9' } } },
         }),
       )
     })
