@@ -18,6 +18,11 @@ function assertOk(status: string, operation: string): void {
   }
 }
 
+/** Tiny returns registros as { registro } when there is one record, or [{ registro }] for many. */
+function firstRegistro<T>(registros: Array<{ registro: T }> | { registro: T }): T {
+  return Array.isArray(registros) ? registros[0].registro : registros.registro
+}
+
 /** Converts ISO YYYY-MM-DD to Tiny's DD/MM/YYYY format */
 function toTinyDate(iso: string): string {
   const [year, month, day] = iso.split('-')
@@ -179,7 +184,7 @@ export class OrdersEndpoint implements OrdersModule {
 
     assertOk(raw.retorno.status, 'createOrder')
 
-    const id = String(raw.retorno.registros![0].registro.id)
+    const id = String(firstRegistro(raw.retorno.registros!).id)
     return this.getOrder(id)
   }
 
