@@ -16,6 +16,6 @@ export interface SearchProductsInput {
 
 export interface SearchProductsOutput {
   products: Product[]
-  total: number
   page: number
+  numberOfPages: number
 }
