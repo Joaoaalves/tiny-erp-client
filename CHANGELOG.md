@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.1] - 2026-03-19
+
+### Fixed
+- Add `formato=json` query parameter to every request — Tiny API defaults to XML when this param is absent, causing all responses to fail JSON parsing
+
+---
+
 ## [0.2.0] - 2026-03-19
 
 ### Added
@@ -128,5 +135,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[0.2.1]: https://github.com/your-org/tiny-erp-client/releases/tag/v0.2.1
 [0.2.0]: https://github.com/your-org/tiny-erp-client/releases/tag/v0.2.0
 [0.1.0]: https://github.com/your-org/tiny-erp-client/releases/tag/v0.1.0
