@@ -174,7 +174,7 @@ export class OrdersEndpoint implements OrdersModule {
     const raw = await this.executor.execute<ApiCreateOrderResponse>({
       path: '/pedido.incluir',
       method: 'POST',
-      body: { pedido: toApiBody(input) },
+      queryBody: { pedido: { pedido: toApiBody(input) } },
     })
 
     assertOk(raw.retorno.status, 'createOrder')
@@ -192,7 +192,7 @@ export class OrdersEndpoint implements OrdersModule {
     const raw = await this.executor.execute<ApiStatusResponse>({
       path: '/pedido.alterar',
       method: 'POST',
-      body: { pedido: { id, ...toApiBody(input) } },
+      queryBody: { pedido: { pedido: { id, ...toApiBody(input) } } },
     })
 
     assertOk(raw.retorno.status, 'updateOrder')

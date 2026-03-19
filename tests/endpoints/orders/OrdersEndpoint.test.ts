@@ -225,8 +225,8 @@ describe('OrdersEndpoint', () => {
         total: 0,
       })
 
-      const body = vi.mocked(executor.execute).mock.calls[0][0].body as { pedido: { situacao: string } }
-      expect(body.pedido.situacao).toBe('Aprovado')
+      const qb = vi.mocked(executor.execute).mock.calls[0][0].queryBody as { pedido: { pedido: { situacao: string } } }
+      expect(qb.pedido.pedido.situacao).toBe('Aprovado')
     })
 
     it('sends items translated to Tiny format', async () => {
@@ -242,10 +242,10 @@ describe('OrdersEndpoint', () => {
         total: 119.8,
       })
 
-      const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
-        pedido: { itens: Array<{ item: { descricao: string; quantidade: string; valor_unitario: string } }> }
+      const qb = vi.mocked(executor.execute).mock.calls[0][0].queryBody as {
+        pedido: { pedido: { itens: Array<{ item: { descricao: string; quantidade: string; valor_unitario: string } }> } }
       }
-      expect(body.pedido.itens[0].item).toMatchObject({
+      expect(qb.pedido.pedido.itens[0].item).toMatchObject({
         descricao: 'Camiseta Polo',
         quantidade: '2',
         valor_unitario: '59.9',
@@ -265,13 +265,13 @@ describe('OrdersEndpoint', () => {
         total: 0,
       })
 
-      const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
-        pedido: { cliente: { nome: string; codigo: string; tipo_pessoa: string; cpf_cnpj: string } }
+      const qb = vi.mocked(executor.execute).mock.calls[0][0].queryBody as {
+        pedido: { pedido: { cliente: { nome: string; codigo: string; tipo_pessoa: string; cpf_cnpj: string } } }
       }
-      expect(body.pedido.cliente.nome).toBe('Maria')
-      expect(body.pedido.cliente.codigo).toBe('C999')
-      expect(body.pedido.cliente.tipo_pessoa).toBe('F')
-      expect(body.pedido.cliente.cpf_cnpj).toBe('123.456.789-00')
+      expect(qb.pedido.pedido.cliente.nome).toBe('Maria')
+      expect(qb.pedido.pedido.cliente.codigo).toBe('C999')
+      expect(qb.pedido.pedido.cliente.tipo_pessoa).toBe('F')
+      expect(qb.pedido.pedido.cliente.cpf_cnpj).toBe('123.456.789-00')
     })
 
     it('sends personType "company" as tipo_pessoa "J"', async () => {
@@ -287,10 +287,10 @@ describe('OrdersEndpoint', () => {
         total: 0,
       })
 
-      const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
-        pedido: { cliente: { tipo_pessoa: string } }
+      const qb = vi.mocked(executor.execute).mock.calls[0][0].queryBody as {
+        pedido: { pedido: { cliente: { tipo_pessoa: string } } }
       }
-      expect(body.pedido.cliente.tipo_pessoa).toBe('J')
+      expect(qb.pedido.pedido.cliente.tipo_pessoa).toBe('J')
     })
 
     it('sends personType "foreign" as tipo_pessoa "E"', async () => {
@@ -306,10 +306,10 @@ describe('OrdersEndpoint', () => {
         total: 0,
       })
 
-      const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
-        pedido: { cliente: { tipo_pessoa: string } }
+      const qb = vi.mocked(executor.execute).mock.calls[0][0].queryBody as {
+        pedido: { pedido: { cliente: { tipo_pessoa: string } } }
       }
-      expect(body.pedido.cliente.tipo_pessoa).toBe('E')
+      expect(qb.pedido.pedido.cliente.tipo_pessoa).toBe('E')
     })
 
     it('fetches the created order by id after creation', async () => {
@@ -372,8 +372,10 @@ describe('OrdersEndpoint', () => {
         expect.objectContaining({
           path: '/pedido.alterar',
           method: 'POST',
-          body: expect.objectContaining({
-            pedido: expect.objectContaining({ id: '7', situacao: 'Faturado' }),
+          queryBody: expect.objectContaining({
+            pedido: expect.objectContaining({
+              pedido: expect.objectContaining({ id: '7', situacao: 'Faturado' }),
+            }),
           }),
         }),
       )
@@ -409,10 +411,10 @@ describe('OrdersEndpoint', () => {
 
       await new OrdersEndpoint(executor).updateOrder('7', { items: SAMPLE_ITEMS })
 
-      const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
-        pedido: { itens: unknown[] }
+      const qb = vi.mocked(executor.execute).mock.calls[0][0].queryBody as {
+        pedido: { pedido: { itens: unknown[] } }
       }
-      expect(body.pedido.itens).toHaveLength(1)
+      expect(qb.pedido.pedido.itens).toHaveLength(1)
     })
 
     it('omits situacao from body when status is not provided', async () => {
@@ -423,10 +425,10 @@ describe('OrdersEndpoint', () => {
 
       await new OrdersEndpoint(executor).updateOrder('7', { notes: 'Urgente' })
 
-      const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
-        pedido: Record<string, unknown>
+      const qb = vi.mocked(executor.execute).mock.calls[0][0].queryBody as {
+        pedido: { pedido: Record<string, unknown> }
       }
-      expect(body.pedido['situacao']).toBeUndefined()
+      expect(qb.pedido.pedido['situacao']).toBeUndefined()
     })
 
     it('maps freightResponsibility "sender" to frete_por_conta "C"', async () => {
@@ -437,10 +439,10 @@ describe('OrdersEndpoint', () => {
 
       await new OrdersEndpoint(executor).updateOrder('7', { freightResponsibility: 'sender' })
 
-      const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
-        pedido: Record<string, unknown>
+      const qb = vi.mocked(executor.execute).mock.calls[0][0].queryBody as {
+        pedido: { pedido: Record<string, unknown> }
       }
-      expect(body.pedido['frete_por_conta']).toBe('C')
+      expect(qb.pedido.pedido['frete_por_conta']).toBe('C')
     })
 
     it('maps freightResponsibility "recipient" to frete_por_conta "D"', async () => {
@@ -451,10 +453,10 @@ describe('OrdersEndpoint', () => {
 
       await new OrdersEndpoint(executor).updateOrder('7', { freightResponsibility: 'recipient' })
 
-      const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
-        pedido: Record<string, unknown>
+      const qb = vi.mocked(executor.execute).mock.calls[0][0].queryBody as {
+        pedido: { pedido: Record<string, unknown> }
       }
-      expect(body.pedido['frete_por_conta']).toBe('D')
+      expect(qb.pedido.pedido['frete_por_conta']).toBe('D')
     })
 
     it('maps freightResponsibility "third-party" to frete_por_conta "3"', async () => {
@@ -465,10 +467,10 @@ describe('OrdersEndpoint', () => {
 
       await new OrdersEndpoint(executor).updateOrder('7', { freightResponsibility: 'third-party' })
 
-      const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
-        pedido: Record<string, unknown>
+      const qb = vi.mocked(executor.execute).mock.calls[0][0].queryBody as {
+        pedido: { pedido: Record<string, unknown> }
       }
-      expect(body.pedido['frete_por_conta']).toBe('3')
+      expect(qb.pedido.pedido['frete_por_conta']).toBe('3')
     })
 
     it('maps freightResponsibility "no-freight" to frete_por_conta "S"', async () => {
@@ -479,10 +481,10 @@ describe('OrdersEndpoint', () => {
 
       await new OrdersEndpoint(executor).updateOrder('7', { freightResponsibility: 'no-freight' })
 
-      const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
-        pedido: Record<string, unknown>
+      const qb = vi.mocked(executor.execute).mock.calls[0][0].queryBody as {
+        pedido: { pedido: Record<string, unknown> }
       }
-      expect(body.pedido['frete_por_conta']).toBe('S')
+      expect(qb.pedido.pedido['frete_por_conta']).toBe('S')
     })
 
     it('sends tracking fields in body', async () => {
@@ -496,11 +498,11 @@ describe('OrdersEndpoint', () => {
         trackingUrl: 'https://track.example.com',
       })
 
-      const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
-        pedido: Record<string, unknown>
+      const qb = vi.mocked(executor.execute).mock.calls[0][0].queryBody as {
+        pedido: { pedido: Record<string, unknown> }
       }
-      expect(body.pedido['codigo_rastreamento']).toBe('BR123456789BR')
-      expect(body.pedido['url_rastreamento']).toBe('https://track.example.com')
+      expect(qb.pedido.pedido['codigo_rastreamento']).toBe('BR123456789BR')
+      expect(qb.pedido.pedido['url_rastreamento']).toBe('https://track.example.com')
     })
 
     it('sends notes and internalNotes in body', async () => {
@@ -514,11 +516,11 @@ describe('OrdersEndpoint', () => {
         internalNotes: 'Interna',
       })
 
-      const body = vi.mocked(executor.execute).mock.calls[0][0].body as {
-        pedido: Record<string, unknown>
+      const qb = vi.mocked(executor.execute).mock.calls[0][0].queryBody as {
+        pedido: { pedido: Record<string, unknown> }
       }
-      expect(body.pedido['obs']).toBe('Observação')
-      expect(body.pedido['obs_interna']).toBe('Interna')
+      expect(qb.pedido.pedido['obs']).toBe('Observação')
+      expect(qb.pedido.pedido['obs_interna']).toBe('Interna')
     })
 
     it('throws TinyApiError when update status is not OK', async () => {

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.3] - 2026-03-19
+
+### Fixed
+- All mutation (POST) requests now send their payload as a JSON-encoded query parameter instead of an HTTP body — Tiny API requires this for all write endpoints
+  - `createProduct`: `produto={"produto":{...}}`
+  - `updateProduct`: `produto={"produtos":[{"produto":{"sequencia":1,...}}]}`
+  - `updateStock`: `estoque={"estoque":{...}}`
+  - `updatePrices`: `produto={"produto":{"id":"...","preco":"..."}}`
+  - `createOrder`: `pedido={"pedido":{...}}`
+  - `updateOrder`: `pedido={"pedido":{"id":"...",...}}`
+- Fixed corrupted source line in `ProductsEndpoint.updateStock` (`{Mo` → `{`)
+
+---
+
 ## [0.2.2] - 2026-03-19
 
 ### Fixed
@@ -147,6 +161,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[0.2.3]: https://github.com/your-org/tiny-erp-client/releases/tag/v0.2.3
 [0.2.2]: https://github.com/your-org/tiny-erp-client/releases/tag/v0.2.2
 [0.2.1]: https://github.com/your-org/tiny-erp-client/releases/tag/v0.2.1
 [0.2.0]: https://github.com/your-org/tiny-erp-client/releases/tag/v0.2.0

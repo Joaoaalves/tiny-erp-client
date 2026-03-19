@@ -179,7 +179,7 @@ export class ProductsEndpoint implements ProductsModule {
     const raw = await this.executor.execute<ApiCreateProductResponse>({
       path: '/produto.incluir',
       method: 'POST',
-      body: { produto: toApiBody(input) },
+      queryBody: { produto: { produto: toApiBody(input) } },
     })
 
     assertOk(raw.retorno.status, 'createProduct')
@@ -194,7 +194,7 @@ export class ProductsEndpoint implements ProductsModule {
     const raw = await this.executor.execute<ApiStatusResponse>({
       path: '/produto.alterar',
       method: 'POST',
-      body: { produto: { id, ...toApiBody(input) } },
+      queryBody: { produto: { produtos: [{ produto: { sequencia: 1, id, ...toApiBody(input) } }] } },
     })
 
     assertOk(raw.retorno.status, 'updateProduct')
@@ -326,7 +326,7 @@ export class ProductsEndpoint implements ProductsModule {
     const raw = await this.executor.execute<ApiUpdateStockResponse>({
       path: '/produto.atualizar.estoque',
       method: 'POST',
-      body: { estoque },
+      queryBody: { estoque: { estoque } },
     })
 
     assertOk(raw.retorno.status, 'updateStock')
@@ -349,7 +349,7 @@ export class ProductsEndpoint implements ProductsModule {
     const raw = await this.executor.execute<ApiStatusResponse>({
       path: '/produto.atualizar.precos',
       method: 'POST',
-      body: { produto: { id, preco: String(price) } },
+      queryBody: { produto: { produto: { id, preco: String(price) } } },
     })
 
     assertOk(raw.retorno.status, 'updatePrices')
