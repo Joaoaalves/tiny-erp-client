@@ -18,6 +18,7 @@ export default defineConfig({
         // barrel/re-export files — no logic to cover
         'src/index.ts',
         'src/core/index.ts',
+        'src/rate-limit/index.ts',
         // shell — implementation deferred to feature/client-core
         'src/client/TinyClient.ts',
       ],
